@@ -15,7 +15,7 @@ One `.pq` file per function. To use: Excel/Power BI → Get Data → Blank Query
 | [`Fx.AUFinancialYear`](powerquery/Fx.AUFinancialYear.pq) | AU helpers | FY label, start, end for any date (1 July – 30 June) |
 | [`Fx.ABNIsValid`](powerquery/Fx.ABNIsValid.pq) | AU helpers | ABN checksum validation (ATO weighting algorithm); checksum ≠ registered — check ABN Lookup for status |
 
-Test against [`samples/sample-xero-trial-balance.csv`](samples/sample-xero-trial-balance.csv) (combined layout) and [`samples/sample-xero-trial-balance-columns.csv`](samples/sample-xero-trial-balance-columns.csv) (separate-column layout) — fabricated, balanced TBs carrying the same accounts and amounts in both shapes, plus both the period-movement and YTD (as-at) pairs so the pair selection gets exercised.
+Test against [`samples/sample-xero-trial-balance.csv`](samples/sample-xero-trial-balance.csv) (combined layout) and [`samples/sample-xero-trial-balance-columns.csv`](samples/sample-xero-trial-balance-columns.csv) (separate-column layout) — fabricated, balanced TBs carrying the same accounts and amounts in both shapes, plus both the period-movement and YTD (as-at) pairs so the pair selection gets exercised. They also include a code-less `Rent (Sydney)` account: it must load with a null `AccountCode` and its full name intact.
 
 After loading a TB, the first check is always: `Number.Abs(List.Sum(result[Debit]) - List.Sum(result[Credit])) < 0.005` — a tolerance, because the sums are IEEE doubles and exact `=` can fail on a genuinely balanced TB.
 

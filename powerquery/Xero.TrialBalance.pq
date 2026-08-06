@@ -203,7 +203,10 @@ let
                                         if parenPos >= 0
                                         then Text.Range(trimmed, parenPos + 2, Text.Length(trimmed) - parenPos - 3)
                                         else null,
-                                    dashCandidate = Text.BeforeDelimiter(trimmed, " - ")
+                                    dashCandidate =
+                                        if Text.Contains(trimmed, " - ")
+                                        then Text.BeforeDelimiter(trimmed, " - ")
+                                        else null
                                 in
                                     if isCode(parenCandidate) then parenCandidate
                                     else if isCode(dashCandidate) then dashCandidate
