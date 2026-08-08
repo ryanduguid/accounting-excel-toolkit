@@ -5,9 +5,9 @@ Private Const RESULT_SHEET_NAME As String = "Recon Result"
 Private Const RESULT_TAG_NAME As String = "__ReconCompareResultSheet"
 
 ' modReconCompare
-' Keyed two-way reconciliation between two ranges — the "why doesn't the
+' Keyed two-way reconciliation between two ranges - the "why doesn't the
 ' subledger agree to the GL" workhorse. Late-bound Scripting.Dictionary,
-' so no references need adding. Windows Excel only — Mac Excel has no
+' so no references need adding. Windows Excel only - Mac Excel has no
 ' Scripting.Dictionary and no reference can supply it.
 ' Import via VBE: File > Import File...
 
@@ -19,7 +19,7 @@ Private Const RESULT_TAG_NAME As String = "__ReconCompareResultSheet"
 '
 ' Keys compare as trimmed text, case-insensitive. A key stored as TEXT
 ' "001234" on one side and as the NUMBER 1234 on the other normalises to
-' "001234" vs "1234" — two different keys, reported as two one-sided
+' "001234" vs "1234" - two different keys, reported as two one-sided
 ' exceptions. Format both key columns the same way before running.
 '
 ' Invisible characters ride in with pasted data: non-breaking spaces, tabs
@@ -36,7 +36,7 @@ Public Sub CompareKeyedRanges( _
     Optional ByVal tolerance As Double = 0.005)
 
 #If Mac Then
-    ' Scripting.Dictionary lives in the Windows-only scripting runtime — name
+    ' Scripting.Dictionary lives in the Windows-only scripting runtime - name
     ' the platform instead of failing with a bare 429 on the first CreateObject.
     Err.Raise 5, , "modReconCompare needs Scripting.Dictionary - Windows Excel only."
 #End If
@@ -48,7 +48,7 @@ Public Sub CompareKeyedRanges( _
     Set dictA = SumByKey(rangeA, skippedRows)
     Set dictB = SumByKey(rangeB, skippedRows)
 
-    ' Refuse to run when a source range lives on the result sheet — the
+    ' Refuse to run when a source range lives on the result sheet - the
     ' delete below would destroy caller data.
     If StrComp(rangeA.Worksheet.Name, RESULT_SHEET_NAME, vbTextCompare) = 0 _
         Or StrComp(rangeB.Worksheet.Name, RESULT_SHEET_NAME, vbTextCompare) = 0 Then
@@ -85,7 +85,7 @@ Public Sub CompareKeyedRanges( _
         If dictB.Exists(k) Then amtB = dictB(k)
         diff = amtA - amtB
         If Abs(diff) > tolerance Then
-            ' Text format BEFORE the write — .Value into a General cell
+            ' Text format BEFORE the write - .Value into a General cell
             ' re-parses "001234" to 1234 and "3-10" to a date
             ws.Cells(outRow, 1).NumberFormat = "@"
             ws.Cells(outRow, 1).Value = k
@@ -109,7 +109,7 @@ Public Sub CompareKeyedRanges( _
         End If
     Next k
 
-    ' A clean recon leaves outRow = 2 — the reversed corner pair would then
+    ' A clean recon leaves outRow = 2 - the reversed corner pair would then
     ' normalise to the B1:D2 bounding box and format the header row.
     If outRow > 2 Then
         ws.Range(ws.Cells(2, 2), ws.Cells(outRow - 1, 4)).NumberFormat = "#,##0.00_);(#,##0.00);""-""??_)"
@@ -205,7 +205,7 @@ Private Function SumByKey(ByVal source As Range, ByRef skippedRows As Long) As O
     Set dict = CreateObject("Scripting.Dictionary")
     dict.CompareMode = vbTextCompare
 
-    ' Shape checks — Cells(r, 2) on a one-column range would read the
+    ' Shape checks - Cells(r, 2) on a one-column range would read the
     ' worksheet column beside it, and a Ctrl-selected union silently
     ' truncates to its first area.
     If source.Areas.Count > 1 Then
@@ -215,7 +215,7 @@ Private Function SumByKey(ByVal source As Range, ByRef skippedRows As Long) As O
         Err.Raise 5, , "Range needs at least two columns (key, amount)."
     End If
 
-    ' Bound the loop to the used range — a whole-column selection (A:B) is
+    ' Bound the loop to the used range - a whole-column selection (A:B) is
     ' 1,048,576 rows and two COM reads per row, which freezes Excel for
     ' minutes. Rows only; column geometry stays exactly as passed.
     Dim used As Range, lastR As Long
@@ -233,7 +233,7 @@ Private Function SumByKey(ByVal source As Range, ByRef skippedRows As Long) As O
         If IsError(keyVal) Or IsError(v) Then
             skippedRows = skippedRows + 1
         Else
-            ' Trim$ only sees plain spaces — a non-breaking space, tab or
+            ' Trim$ only sees plain spaces - a non-breaking space, tab or
             ' line break pasted in with a key leaves it looking identical to
             ' a clean one and matching nothing.
             k = CStr(keyVal)
@@ -244,10 +244,10 @@ Private Function SumByKey(ByVal source As Range, ByRef skippedRows As Long) As O
             k = Replace$(k, vbLf, " ")
             k = Replace$(k, ChrW$(8203), "")
             k = Trim$(k)
-            ' Not IsEmpty guards the VBA trap IsNumeric(Empty) = True — a
+            ' Not IsEmpty guards the VBA trap IsNumeric(Empty) = True - a
             ' blank amount must count as skipped, not sum as a silent zero.
             ' VarType guards the sibling trap IsNumeric(True) = True with
-            ' CDbl(True) = -1 — a stray TRUE must skip, not sum as -1.00
+            ' CDbl(True) = -1 - a stray TRUE must skip, not sum as -1.00
             If Len(k) > 0 And Not IsEmpty(v) And VarType(v) <> vbBoolean And IsNumeric(v) Then
                 If dict.Exists(k) Then
                     dict(k) = dict(k) + CDbl(v)
