@@ -2,7 +2,7 @@
 
 Power Query (M) functions and VBA modules for accountants working with Australian ledger exports — a Xero trial balance parser, an AU financial-year helper, ABN validation, workpaper formatting, keyed reconciliations.
 
-Every function here exists because a real month-end needed it — written independently, from scratch, over years inside Australian public practice.
+Every function here solves a problem the Australian ledger-export formats create. Written independently, from scratch, in my own time and on my own equipment.
 
 ## Power Query functions
 
