@@ -18,13 +18,13 @@ Public Sub ApplyWorkpaperHeader( _
 
     If ws.ProtectContents Then Err.Raise 5, , "Sheet '" & ws.Name & "' is protected - unprotect it first."
 
-    ' A live cut/copy marquee turns Insert into a paste — the clipboard
+    ' A live cut/copy marquee turns Insert into a paste - the clipboard
     ' block would land in rows 1:5 instead of blank rows
     Application.CutCopyMode = False
     ws.Rows("1:5").Insert Shift:=xlDown
 
     With ws
-        ' Text format BEFORE the write — an entity name or title starting
+        ' Text format BEFORE the write - an entity name or title starting
         ' with "=" would otherwise be stored as a live formula
         .Range("A1:A4").NumberFormat = "@"
         .Range("A1").Value = entityName
@@ -43,7 +43,7 @@ End Sub
 Public Sub AddReviewerLine(ByVal ws As Worksheet)
     If ws.ProtectContents Then Err.Raise 5, , "Sheet '" & ws.Name & "' is protected - unprotect it first."
 
-    ' Last used row across ALL columns — End(xlUp) on column A alone lands
+    ' Last used row across ALL columns - End(xlUp) on column A alone lands
     ' inside the data when the final rows only hold amounts in B onwards
     ' (totals blocks, formula-only footers). LookIn/LookAt are explicit
     ' because Find otherwise inherits the user's last Find-dialog settings.
@@ -62,7 +62,7 @@ Public Sub AddReviewerLine(ByVal ws As Worksheet)
 End Sub
 
 ' Applies accounting number format (thousands separator, bracketed negatives,
-' dash for zero) to a range — the format reviewers expect on workpapers.
+' dash for zero) to a range - the format reviewers expect on workpapers.
 Public Sub FormatAsAccounting(ByVal target As Range)
     target.NumberFormat = "#,##0.00_);(#,##0.00);""-""??_)"
 End Sub
@@ -74,14 +74,14 @@ End Sub
 ' top so the freeze anchors where the selection says, not where the window
 ' happened to be scrolled.
 Public Sub FreezeBelowHeader(ByVal ws As Worksheet, Optional ByVal headerRows As Long = 5)
-    ' Validate before touching the window — a failure after the existing
+    ' Validate before touching the window - a failure after the existing
     ' freeze is cleared would leave the sheet half-done, and headerRows = 0
     ' would not fail at all (FreezePanes with A1 active freezes at the
     ' centre of the visible window, an arbitrary split).
     If headerRows < 1 Then Err.Raise 5, , "headerRows must be at least 1"
     If ws.ProtectContents Then Err.Raise 5, , "Sheet '" & ws.Name & "' is protected - unprotect it first."
     ' Activate on a hidden sheet silently activates the nearest visible
-    ' neighbour instead — the neighbour's panes would be wrecked and the
+    ' neighbour instead - the neighbour's panes would be wrecked and the
     ' anchor Select would fail
     If ws.Visible <> xlSheetVisible Then Err.Raise 5, , "Sheet is hidden - unhide it before freezing panes."
 
