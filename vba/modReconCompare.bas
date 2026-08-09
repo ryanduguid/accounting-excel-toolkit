@@ -5,9 +5,9 @@ Private Const RESULT_SHEET_NAME As String = "Recon Result"
 Private Const RESULT_TAG_NAME As String = "__ReconCompareResultSheet"
 
 ' modReconCompare
-' Keyed two-way reconciliation between two ranges — the "why doesn't the
+' Keyed two-way reconciliation between two ranges - the "why doesn't the
 ' subledger agree to the GL" workhorse. Late-bound Scripting.Dictionary,
-' so no references need adding. Windows Excel only — Mac Excel has no
+' so no references need adding. Windows Excel only - Mac Excel has no
 ' Scripting.Dictionary and no reference can supply it.
 ' Import via VBE: File > Import File...
 
@@ -19,7 +19,7 @@ Private Const RESULT_TAG_NAME As String = "__ReconCompareResultSheet"
 '
 ' Keys compare as trimmed text, case-insensitive. A key stored as TEXT
 ' "001234" on one side and as the NUMBER 1234 on the other normalises to
-' "001234" vs "1234" — two different keys, reported as two one-sided
+' "001234" vs "1234" - two different keys, reported as two one-sided
 ' exceptions. Format both key columns the same way before running.
 '
 ' Invisible characters ride in with pasted data: non-breaking spaces, tabs
@@ -36,7 +36,7 @@ Public Sub CompareKeyedRanges( _
     Optional ByVal tolerance As Double = 0.005)
 
 #If Mac Then
-    ' Scripting.Dictionary lives in the Windows-only scripting runtime — name
+    ' Scripting.Dictionary lives in the Windows-only scripting runtime - name
     ' the platform instead of failing with a bare 429 on the first CreateObject.
     Err.Raise 5, , "modReconCompare needs Scripting.Dictionary - Windows Excel only."
 #End If
@@ -48,7 +48,7 @@ Public Sub CompareKeyedRanges( _
     Set dictA = SumByKey(rangeA, skippedRows)
     Set dictB = SumByKey(rangeB, skippedRows)
 
-    ' Refuse to run when a source range lives on the result sheet — the
+    ' Refuse to run when a source range lives on the result sheet - the
     ' delete below would destroy caller data.
     If StrComp(rangeA.Worksheet.Name, RESULT_SHEET_NAME, vbTextCompare) = 0 _
         Or StrComp(rangeB.Worksheet.Name, RESULT_SHEET_NAME, vbTextCompare) = 0 Then
@@ -85,7 +85,7 @@ Public Sub CompareKeyedRanges( _
         If dictB.Exists(k) Then amtB = dictB(k)
         diff = amtA - amtB
         If Abs(diff) > tolerance Then
-            ' Text format BEFORE the write — .Value into a General cell
+            ' Text format BEFORE the write - .Value into a General cell
             ' re-parses "001234" to 1234 and "3-10" to a date
             ws.Cells(outRow, 1).NumberFormat = "@"
             ws.Cells(outRow, 1).Value = k
@@ -109,7 +109,7 @@ Public Sub CompareKeyedRanges( _
         End If
     Next k
 
-    ' A clean recon leaves outRow = 2 — the reversed corner pair would then
+    ' A clean recon leaves outRow = 2 - the reversed corner pair would then
     ' normalise to the B1:D2 bounding box and format the header row.
     If outRow > 2 Then
         ws.Range(ws.Cells(2, 2), ws.Cells(outRow - 1, 4)).NumberFormat = "#,##0.00_);(#,##0.00);""-""??_)"
@@ -125,22 +125,34 @@ End Sub
 Private Sub DeletePreviousGeneratedResult(ByVal wb As Workbook)
     Dim stale As Object
     Dim marker As Name
+    Dim keptSheet As Object
+    Dim survivor As Object
     Dim previousAlerts As Boolean
 
     On Error Resume Next
     Set stale = wb.Sheets(RESULT_SHEET_NAME)
     On Error GoTo 0
     If stale Is Nothing Then
-        ' A left-over marker would make the next sheet unmarkable. Stop
-        ' before creating anything rather than leaving an unowned output
-        ' sheet behind; a user-owned marker is also never removed silently.
         On Error Resume Next
         Set marker = wb.Names(RESULT_TAG_NAME)
         On Error GoTo 0
-        If Not marker Is Nothing Then
-            Err.Raise 5, , "The reserved recon result marker exists but there is no 'Recon Result' sheet. It was left untouched; remove or rename the marker before running the recon."
+        If marker Is Nothing Then Exit Sub
+
+        ' The marker is a HIDDEN name: it never shows in Name Manager, so
+        ' an error demanding its removal cannot be acted on from the Excel
+        ' UI. When the sheet it tagged is gone (deleted by hand), the
+        ' marker is dead - clean it up and carry on. Only a marker still
+        ' attached to a live sheet (the generated sheet was renamed and
+        ' kept) is worth stopping for, and that stop names UI-only steps.
+        Set keptSheet = MarkerTaggedSheet(wb, marker)
+        If keptSheet Is Nothing Then
+            marker.Delete
+            Exit Sub
         End If
-        Exit Sub
+        Err.Raise 5, , "A previous recon result sheet was renamed to '" & keptSheet.Name & _
+            "' and is still marked as generated. Rename it back to '" & RESULT_SHEET_NAME & _
+            "' to let the recon replace it, or to keep it: make a copy of the sheet " & _
+            "(right-click its tab > Move or Copy), then delete the original."
     End If
 
     If Not IsGeneratedResultSheet(wb, stale) Then
@@ -151,6 +163,20 @@ Private Sub DeletePreviousGeneratedResult(ByVal wb As Workbook)
     On Error GoTo DeleteFailed
     Application.DisplayAlerts = False
     stale.Delete
+
+    ' Excel refuses to delete the last visible sheet, and with
+    ' DisplayAlerts off it refuses SILENTLY: .Delete returns with the
+    ' sheet still in place. Re-check and stop BEFORE touching the marker
+    ' so the surviving sheet stays marked and is still recognised as
+    ' generated on the next run. The raise lands in DeleteFailed, which
+    ' restores DisplayAlerts.
+    On Error Resume Next
+    Set survivor = wb.Sheets(RESULT_SHEET_NAME)
+    On Error GoTo DeleteFailed
+    If Not survivor Is Nothing Then
+        Err.Raise 5, , "'" & RESULT_SHEET_NAME & "' is the only visible sheet, so Excel cannot delete it. Add or unhide another sheet, then run the recon again."
+    End If
+
     Application.DisplayAlerts = previousAlerts
 
     ' Deleting a worksheet normally leaves the workbook-level marker as a
@@ -169,17 +195,18 @@ End Sub
 
 Private Function IsGeneratedResultSheet(ByVal wb As Workbook, ByVal candidate As Object) As Boolean
     Dim marker As Name
-    Dim taggedRange As Range
+    Dim tagged As Object
 
     If TypeName(candidate) <> "Worksheet" Then Exit Function
 
     On Error Resume Next
     Set marker = wb.Names(RESULT_TAG_NAME)
-    If Not marker Is Nothing Then Set taggedRange = marker.RefersToRange
     On Error GoTo 0
+    If marker Is Nothing Then Exit Function
 
-    If taggedRange Is Nothing Then Exit Function
-    IsGeneratedResultSheet = (taggedRange.Worksheet Is candidate)
+    Set tagged = MarkerTaggedSheet(wb, marker)
+    If tagged Is Nothing Then Exit Function
+    IsGeneratedResultSheet = (tagged Is candidate)
 End Function
 
 Private Sub MarkGeneratedResultSheet(ByVal wb As Workbook, ByVal ws As Worksheet)
@@ -192,10 +219,68 @@ Private Sub MarkGeneratedResultSheet(ByVal wb As Workbook, ByVal ws As Worksheet
         Err.Raise 5, , "Cannot mark the generated 'Recon Result' sheet because the reserved result marker already exists. Remove the stale marker before running the recon."
     End If
 
-    wb.Names.Add Name:=RESULT_TAG_NAME, _
-        RefersTo:="='" & Replace$(ws.Name, "'", "''") & "'!$A$1", _
-        Visible:=False
+    ' Anchor the marker to the sheet's CodeName, stored as a text constant.
+    ' A cell anchor like '<sheet>'!$A$1 breaks to #REF! as soon as the user
+    ' deletes row 1 or column A of the result sheet, and the module would
+    ' then disown its own output. The CodeName survives every cell edit. A
+    ' password-locked VBA project leaves a new sheet's CodeName empty -
+    ' fall back to the legacy cell anchor there, which MarkerTaggedSheet
+    ' still understands.
+    If Len(ws.CodeName) > 0 Then
+        wb.Names.Add Name:=RESULT_TAG_NAME, _
+            RefersTo:="=""" & ws.CodeName & """", _
+            Visible:=False
+    Else
+        wb.Names.Add Name:=RESULT_TAG_NAME, _
+            RefersTo:="='" & Replace$(ws.Name, "'", "''") & "'!$A$1", _
+            Visible:=False
+    End If
 End Sub
+
+' Resolves the marker back to the live worksheet it tags, or Nothing when
+' that sheet no longer exists. Understands both marker formats: the
+' CodeName text constant written by MarkGeneratedResultSheet, and the
+' legacy '<sheet>'!$A$1 range anchor written by earlier module versions.
+Private Function MarkerTaggedSheet(ByVal wb As Workbook, ByVal marker As Name) As Object
+    Dim storedCode As String
+    Dim taggedRange As Range
+
+    storedCode = StoredCodeName(marker)
+    If Len(storedCode) > 0 Then
+        Set MarkerTaggedSheet = SheetWithCodeName(wb, storedCode)
+        Exit Function
+    End If
+
+    ' Legacy range anchor: deleting the tagged sheet leaves it as #REF!
+    ' and the probe errors; renaming the tagged sheet keeps it resolving
+    ' to a live range.
+    On Error Resume Next
+    Set taggedRange = marker.RefersToRange
+    On Error GoTo 0
+    If Not taggedRange Is Nothing Then Set MarkerTaggedSheet = taggedRange.Worksheet
+End Function
+
+' Extracts the CodeName from a text-constant marker (RefersTo ="Sheet3").
+' Returns "" for any other RefersTo shape (legacy range anchor, #REF!).
+Private Function StoredCodeName(ByVal marker As Name) As String
+    Dim refersText As String
+    refersText = marker.RefersTo
+    If Len(refersText) < 4 Then Exit Function
+    If Left$(refersText, 2) <> "=""" Then Exit Function
+    If Right$(refersText, 1) <> """" Then Exit Function
+    StoredCodeName = Replace$(Mid$(refersText, 3, Len(refersText) - 3), """""", """")
+End Function
+
+Private Function SheetWithCodeName(ByVal wb As Workbook, ByVal targetCodeName As String) As Object
+    Dim sh As Worksheet
+    For Each sh In wb.Worksheets
+        ' CodeNames are VBA identifiers, unique case-insensitively.
+        If StrComp(sh.CodeName, targetCodeName, vbTextCompare) = 0 Then
+            Set SheetWithCodeName = sh
+            Exit Function
+        End If
+    Next sh
+End Function
 
 ' Sums a two-column (key, amount) range into a dictionary, keyed on the
 ' trimmed text of column 1. Rows with error values (#N/A, #REF!...), blank
@@ -205,7 +290,7 @@ Private Function SumByKey(ByVal source As Range, ByRef skippedRows As Long) As O
     Set dict = CreateObject("Scripting.Dictionary")
     dict.CompareMode = vbTextCompare
 
-    ' Shape checks — Cells(r, 2) on a one-column range would read the
+    ' Shape checks - Cells(r, 2) on a one-column range would read the
     ' worksheet column beside it, and a Ctrl-selected union silently
     ' truncates to its first area.
     If source.Areas.Count > 1 Then
@@ -215,7 +300,7 @@ Private Function SumByKey(ByVal source As Range, ByRef skippedRows As Long) As O
         Err.Raise 5, , "Range needs at least two columns (key, amount)."
     End If
 
-    ' Bound the loop to the used range — a whole-column selection (A:B) is
+    ' Bound the loop to the used range - a whole-column selection (A:B) is
     ' 1,048,576 rows and two COM reads per row, which freezes Excel for
     ' minutes. Rows only; column geometry stays exactly as passed.
     Dim used As Range, lastR As Long
@@ -233,7 +318,7 @@ Private Function SumByKey(ByVal source As Range, ByRef skippedRows As Long) As O
         If IsError(keyVal) Or IsError(v) Then
             skippedRows = skippedRows + 1
         Else
-            ' Trim$ only sees plain spaces — a non-breaking space, tab or
+            ' Trim$ only sees plain spaces - a non-breaking space, tab or
             ' line break pasted in with a key leaves it looking identical to
             ' a clean one and matching nothing.
             k = CStr(keyVal)
@@ -244,10 +329,10 @@ Private Function SumByKey(ByVal source As Range, ByRef skippedRows As Long) As O
             k = Replace$(k, vbLf, " ")
             k = Replace$(k, ChrW$(8203), "")
             k = Trim$(k)
-            ' Not IsEmpty guards the VBA trap IsNumeric(Empty) = True — a
+            ' Not IsEmpty guards the VBA trap IsNumeric(Empty) = True - a
             ' blank amount must count as skipped, not sum as a silent zero.
             ' VarType guards the sibling trap IsNumeric(True) = True with
-            ' CDbl(True) = -1 — a stray TRUE must skip, not sum as -1.00
+            ' CDbl(True) = -1 - a stray TRUE must skip, not sum as -1.00
             If Len(k) > 0 And Not IsEmpty(v) And VarType(v) <> vbBoolean And IsNumeric(v) Then
                 If dict.Exists(k) Then
                     dict(k) = dict(k) + CDbl(v)
