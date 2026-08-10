@@ -341,6 +341,42 @@ class TrialBalanceFixtureTests(unittest.TestCase):
         self.assertIn("if isCode(parenCandidate) then parenCandidate", source)
         self.assertIn("else if isCode(dashCandidate) then dashCandidate", source)
 
+    def test_combined_parser_pins_the_code_taken_by_the_parenthetical_split(self):
+        """The arm that actually extracts the code, pinned like the two it
+        sits between.  isCode says what counts as a code and the AccountName
+        arithmetic says what is left as the name, but neither looks at the
+        offsets that lift "090" out of "Business Bank Account (090)", and
+        those offsets have the same off-by-one shape - a " (" two characters
+        wide and a " (" plus ")" three characters wide.
+
+        Change the + 2 to a + 1 and every parenthetical candidate keeps a
+        leading "(", which isCode rejects, so AccountCode goes null on every
+        coded account and AccountName keeps the raw "Accounts Receivable
+        (610)" cell - every lead schedule keyed on code or name breaks, and
+        isCode, the dash fallback and the fixture assertions all stay green
+        because the fixture assertions run the Python port, not the M.
+
+        Occurrence.Last and the trailing-")" gate are pinned in the same
+        regex because the three are one rule: on "Rent (Sydney) (469)" First
+        takes "Sydney) (469" and the real 469 is lost, and the "- 3" length
+        is only correct because the gate has already established that the
+        last character is the ")" it subtracts."""
+        source = (ROOT / "powerquery" / "Xero.TrialBalance.pq").read_text(encoding="utf-8")
+        self.assertRegex(
+            source,
+            re.compile(
+                r"parenPos =\s*"
+                r'if Text\.EndsWith\(trimmed, "\)"\)\s*'
+                r'then Text\.PositionOf\(trimmed, " \(", Occurrence\.Last\)\s*'
+                r"else -1,\s*"
+                r"parenCandidate =\s*"
+                r"if parenPos >= 0\s*"
+                r"then Text\.Range\(trimmed, parenPos \+ 2, Text\.Length\(trimmed\) - parenPos - 3\)\s*"
+                r"else null,",
+                re.MULTILINE,
+            ),
+        )
+
     def test_combined_parser_pins_the_name_left_by_the_split(self):
         """The other arm of the same code/name split.  isCode decides which
         text is the code; this decides what is left as the name, and it is
@@ -373,8 +409,22 @@ class TrialBalanceFixtureTests(unittest.TestCase):
         README's balance check and gives the accountant positive confirmation
         of a materially wrong trial balance.  Pin all three branches: the
         default prefers YTD, and each explicit choice errors rather than
-        falling back to the pair the caller did not ask for."""
+        falling back to the pair the caller did not ask for - and the two
+        predicates those branches read, because pinning a branch without its
+        input leaves the default flippable from the other end.  Rename either
+        YTD column header upstream and hasYTD goes false, so the default
+        hands back the current-period MOVEMENT in columns still named Debit
+        and Credit; that table balances too, so the README's prescribed check
+        confirms it."""
         source = (ROOT / "powerquery" / "Xero.TrialBalance.pq").read_text(encoding="utf-8")
+        self.assertIn(
+            'hasPeriod = List.Contains(cols, "Debit") and List.Contains(cols, "Credit"),',
+            source,
+        )
+        self.assertIn(
+            'hasYTD = List.Contains(cols, "YTD Debit") and List.Contains(cols, "YTD Credit"),',
+            source,
+        )
         self.assertRegex(
             source,
             re.compile(
@@ -527,6 +577,39 @@ class TrialBalanceFixtureTests(unittest.TestCase):
             ),
         )
         self.assertNotIn("= FirstHeaderValue\n", source)
+
+    def test_header_slice_takes_the_first_match_and_keeps_the_header_row(self):
+        """Finding the header row is guarded above; consuming the index it
+        found is not, and both halves of that are silent when wrong.
+
+        List.Max instead of List.Min slices at the LAST row carrying the
+        header value, so an export that repeats it - an account literally
+        named "Account", a repeated section header in a bank export - loses
+        every data row above the repeat with no error.  HeaderIdx + 1 in the
+        RemoveFirstN drops the header row itself, so PromoteHeaders promotes
+        the first DATA row as the column names: the first account disappears
+        and every downstream column reference breaks.
+
+        Xero.TrialBalance.pq runs the same two steps over its own match list
+        and is pinned here with the promoter, so the pair cannot be corrected
+        in one file and left wrong in the other."""
+        promoter = (ROOT / "powerquery" / "Fx.PromoteHeaderAt.pq").read_text(encoding="utf-8")
+        self.assertIn("List.Min(Matches),", promoter)
+        self.assertIn("Sliced = Table.RemoveFirstN(Raw, HeaderIdx),", promoter)
+        # The function's own header comment states this contract; pinning it
+        # beside the code stops the two drifting apart.
+        self.assertRegex(
+            promoter,
+            re.compile(
+                r"Finds the first\s*//\s*row whose first cell equals FirstHeaderValue, "
+                r"drops everything above it, and\s*//\s*promotes it to headers\.",
+                re.MULTILINE,
+            ),
+        )
+
+        trial_balance = (ROOT / "powerquery" / "Xero.TrialBalance.pq").read_text(encoding="utf-8")
+        self.assertIn("List.Min(HeaderMatches),", trial_balance)
+        self.assertIn("Sliced = Table.RemoveFirstN(Raw, HeaderIdx),", trial_balance)
 
     def test_financial_year_switches_a_datetimezone_to_australian_eastern(self):
         """Date.From on a datetimezone returns the date of the value's LOCAL
