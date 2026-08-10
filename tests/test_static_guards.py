@@ -39,8 +39,51 @@ class TrialBalanceFixtureTests(unittest.TestCase):
             ),
         )
 
+    def test_abn_validator_rejects_unexpected_formatting_and_conversion_errors(self):
+        source = (ROOT / "powerquery" / "Fx.ABNIsValid.pq").read_text(encoding="utf-8")
+        self.assertIn('Text.From(abn ?? "", "en-AU")', source)
+        self.assertIn('raw = if textAttempt[HasError] then "" else textAttempt[Value]', source)
+        self.assertIn('allowedFormatting = Text.Select(raw, {"0".."9", " "}) = raw', source)
+        self.assertIn('digitsOnly = Text.Remove(raw, {" "})', source)
+        self.assertNotIn("Text.Trim(", source)
+
+    def test_abn_format_contract_accepts_ascii_space_but_not_other_whitespace(self):
+        allowed = set("0123456789 ")
+        for value in ("51824753556", "51 824 753 556", " 51 824 753 556 "):
+            with self.subTest(accepted=value):
+                self.assertTrue(set(value) <= allowed)
+        for value in (
+            "\t51 824 753 556",
+            "51 824 753 556\n",
+            "51\r824 753 556",
+            "51\u00a0824 753 556",
+            "51\u2007824 753 556",
+            "51\u202f824 753 556",
+        ):
+            with self.subTest(rejected=repr(value)):
+                self.assertFalse(set(value) <= allowed)
+
+    def test_abn_validation_has_one_power_query_entrypoint(self):
+        abn_sources = sorted(
+            path.name
+            for path in (ROOT / "powerquery").glob("*.pq")
+            if "ABN" in path.read_text(encoding="utf-8")
+        )
+        self.assertEqual(abn_sources, ["Fx.ABNIsValid.pq"])
+
+    def test_header_promoter_fails_clearly_for_zero_columns_or_blank_key(self):
+        source = (ROOT / "powerquery" / "Fx.PromoteHeaderAt.pq").read_text(encoding="utf-8")
+        self.assertIn("if List.IsEmpty(ColumnNames) then", source)
+        self.assertIn("Input table has no columns", source)
+        self.assertIn("Text.Trim(FirstHeaderValue) = \"\"", source)
+
 
 class ReconResultSafetyTests(unittest.TestCase):
+    def test_reconciliation_refuses_missing_ranges_and_negative_tolerance(self):
+        source = (ROOT / "vba" / "modReconCompare.bas").read_text(encoding="utf-8")
+        self.assertIn("If rangeA Is Nothing Or rangeB Is Nothing Then", source)
+        self.assertIn("If tolerance < 0 Then", source)
+
     def test_vba_requires_the_generated_sheet_marker_before_deleting(self):
         module = ROOT / "vba" / "modReconCompare.bas"
         source = module.read_text(encoding="utf-8")
