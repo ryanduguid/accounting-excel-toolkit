@@ -17,32 +17,40 @@ let
     PromoteHeaderAt = (Raw as table, FirstHeaderValue as text) as table =>
         let
             ColumnNames = Table.ColumnNames(Raw),
-            FirstColumn =
+            // Compare the caller's value the same way the cells are compared,
+            // or a header pasted with a trailing space passes the blank guard
+            // and then matches nothing on a perfectly good export.
+            Wanted = Text.Trim(FirstHeaderValue),
+            // Checked feeds Table.AddIndexColumn so both guards are forced on
+            // the eager path. Bound inside the row predicate instead, M's lazy
+            // let-bindings would never evaluate them for a table with no rows.
+            Checked =
                 if List.IsEmpty(ColumnNames) then
                     error Error.Record(
                         "Fx.PromoteHeaderAt",
                         "Input table has no columns",
                         "Supply a table with at least one column before locating a header row."
                     )
-                else if Text.Trim(FirstHeaderValue) = "" then
+                else if Wanted = "" then
                     error Error.Record(
                         "Fx.PromoteHeaderAt",
                         "Header value is blank",
                         "FirstHeaderValue must identify a non-blank first-cell value."
                     )
                 else
-                    ColumnNames{0},
-            Indexed = Table.AddIndexColumn(Raw, "__idx", 0, 1, Int64.Type),
+                    Raw,
+            FirstColumn = ColumnNames{0},
+            Indexed = Table.AddIndexColumn(Checked, "__idx", 0, 1, Int64.Type),
             Matches = Table.SelectRows(
                 Indexed,
-                each Text.Trim(Text.From(Record.Field(_, FirstColumn) ?? "")) = FirstHeaderValue
+                each Text.Trim(Text.From(Record.Field(_, FirstColumn) ?? "")) = Wanted
             )[__idx],
             HeaderIdx =
                 if List.IsEmpty(Matches) then
                     error Error.Record(
                         "Fx.PromoteHeaderAt",
                         "Header row not found",
-                        "No row has """ & FirstHeaderValue & """ as its first cell — wrong report, or the export format changed."
+                        "No row has """ & Wanted & """ as its first cell — wrong report, or the export format changed."
                     )
                 else
                     List.Min(Matches),
