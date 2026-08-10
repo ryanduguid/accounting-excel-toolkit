@@ -47,11 +47,56 @@ class TrialBalanceFixtureTests(unittest.TestCase):
         self.assertIn('digitsOnly = Text.Remove(raw, {" "})', source)
         self.assertNotIn("Text.Trim(", source)
 
-    def test_abn_format_contract_accepts_ascii_space_but_not_other_whitespace(self):
-        allowed = set("0123456789 ")
+    def test_abn_format_guards_are_consulted_by_the_result_expression(self):
+        """Binding a guard is not using it.
+
+        The previous version of this test compared a Python set against a
+        Python set and would have passed with every guard removed from the M.
+        Pin each clause into the `result` conditional instead, so deleting one
+        fails here.
+        """
+        source = (ROOT / "powerquery" / "Fx.ABNIsValid.pq").read_text(encoding="utf-8")
+        self.assertRegex(
+            source,
+            re.compile(
+                r"result\s*=\s*"
+                r"if not allowedFormatting\s*"
+                r"or Text\.Length\(digitsOnly\) <> 11\s*"
+                r'or Text\.Select\(digitsOnly, \{"0"\.\."9"\}\) <> digitsOnly\s*'
+                r'or Text\.StartsWith\(digitsOnly, "0"\) then\s*'
+                r"false",
+                re.MULTILINE,
+            ),
+        )
+
+    def test_abn_reference_contract_matches_the_power_query_constants(self):
+        """A Python port of the ATO checksum, pinned to the M's own constants.
+
+        This does not execute the M - there is no Power Query host in CI - so
+        it is a specification test: the vectors document the contract, and the
+        constant assertions fail if the M drifts away from it.
+        """
+        source = (ROOT / "powerquery" / "Fx.ABNIsValid.pq").read_text(encoding="utf-8")
+        weights = (10, 1, 3, 5, 7, 9, 11, 13, 15, 17, 19)
+        self.assertIn(
+            "weights = {" + ", ".join(str(w) for w in weights) + "}",
+            source,
+        )
+        self.assertIn("Number.Mod(total, 89) = 0", source)
+
+        def abn_is_valid(value: str) -> bool:
+            if set(value) - set("0123456789 "):
+                return False
+            digits = value.replace(" ", "")
+            if len(digits) != 11 or not digits.isdigit() or digits.startswith("0"):
+                return False
+            numbers = [int(d) for d in digits]
+            numbers[0] -= 1
+            return sum(n * w for n, w in zip(numbers, weights)) % 89 == 0
+
         for value in ("51824753556", "51 824 753 556", " 51 824 753 556 "):
             with self.subTest(accepted=value):
-                self.assertTrue(set(value) <= allowed)
+                self.assertTrue(abn_is_valid(value))
         for value in (
             "\t51 824 753 556",
             "51 824 753 556\n",
@@ -59,23 +104,50 @@ class TrialBalanceFixtureTests(unittest.TestCase):
             "51\u00a0824 753 556",
             "51\u2007824 753 556",
             "51\u202f824 753 556",
+            "51-824-753-556",
+            "5182475355A",
+            "5182475355",
+            "51824753557",
+            "00000090000",
         ):
             with self.subTest(rejected=repr(value)):
-                self.assertFalse(set(value) <= allowed)
+                self.assertFalse(abn_is_valid(value))
 
-    def test_abn_validation_has_one_power_query_entrypoint(self):
-        abn_sources = sorted(
+    def test_abn_checksum_is_implemented_once(self):
+        """Match the implementation, not the topic.
+
+        Forbidding the substring "ABN" everywhere else broke the moment any
+        other query called or even named this helper, which is exactly the
+        composition the README advertises.
+        """
+        implementations = sorted(
             path.name
             for path in (ROOT / "powerquery").glob("*.pq")
-            if "ABN" in path.read_text(encoding="utf-8")
+            if "Number.Mod(total, 89)" in path.read_text(encoding="utf-8")
         )
-        self.assertEqual(abn_sources, ["Fx.ABNIsValid.pq"])
+        self.assertEqual(implementations, ["Fx.ABNIsValid.pq"])
 
-    def test_header_promoter_fails_clearly_for_zero_columns_or_blank_key(self):
+    def test_header_promoter_guards_run_before_any_row_is_examined(self):
+        """M let-bindings are lazy.
+
+        Bound only inside the Table.SelectRows predicate, neither guard fires
+        for a table with no rows. Checked has to feed Table.AddIndexColumn.
+        """
         source = (ROOT / "powerquery" / "Fx.PromoteHeaderAt.pq").read_text(encoding="utf-8")
         self.assertIn("if List.IsEmpty(ColumnNames) then", source)
         self.assertIn("Input table has no columns", source)
-        self.assertIn("Text.Trim(FirstHeaderValue) = \"\"", source)
+        self.assertIn("Table.AddIndexColumn(Checked,", source)
+        # The blank check and the row matcher must use the same normalised
+        # value, or a header pasted with a trailing space matches nothing.
+        self.assertIn("Wanted = Text.Trim(FirstHeaderValue)", source)
+        self.assertIn('else if Wanted = "" then', source)
+        self.assertRegex(
+            source,
+            re.compile(
+                r'each Text\.Trim\(Text\.From\(Record\.Field\(_, FirstColumn\) \?\? ""\)\) = Wanted'
+            ),
+        )
+        self.assertNotIn("= FirstHeaderValue\n", source)
 
 
 class ReconResultSafetyTests(unittest.TestCase):
