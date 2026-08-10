@@ -152,6 +152,36 @@ class TestNonAsciiIsCaught(unittest.TestCase):
             self.assertIn("UTF-8 BOM", joined)
             self.assertIn("bare LF", joined)
 
+    def test_bare_cr_line_endings_are_caught_and_fail_the_run(self) -> None:
+        """The other half of the CRLF claim, and the only branch of
+        check_bytes with no test. A .bas written with CR-only endings - an
+        old Mac editor, or a botched conversion - imports into the VBE as one
+        line, so the module the user believed was verified is destroyed. It
+        is pure ASCII with no BOM and no bare LF, so this branch is the only
+        thing standing between it and "pass: pure ASCII, CRLF, no BOM"."""
+        with TempVbaDir() as vba:
+            (vba / "modCR.bas").write_bytes(
+                b'Attribute VB_Name = "modCR"\rOption Explicit\r'
+            )
+            joined = " | ".join(guard.check_file(vba / "modCR.bas"))
+            self.assertIn("2 bare CR (no following LF)", joined)
+            self.assertNotIn("bare LF", joined)
+            self.assertNotIn("non-ASCII", joined)
+            out, err = io.StringIO(), io.StringIO()
+            with redirect_stdout(out), redirect_stderr(err):
+                self.assertEqual(guard.main([], vba), 1)
+            self.assertIn("bare CR", err.getvalue())
+            self.assertNotIn("file(s) pass", out.getvalue())
+
+    def test_a_trailing_cr_at_end_of_file_is_caught(self) -> None:
+        # The end-of-buffer arm of the same branch: a CR as the final byte
+        # has no following byte to inspect.
+        self.assertIn(
+            "1 bare CR (no following LF)",
+            " | ".join(guard.check_bytes(b"Option Explicit\r\nEnd Sub\r")),
+        )
+        self.assertEqual(guard.check_bytes(CLEAN_BAS), [])
+
 
 class TestEmptyDirectoryStillFailsLoudly(unittest.TestCase):
     def test_empty_directory_raises(self) -> None:
