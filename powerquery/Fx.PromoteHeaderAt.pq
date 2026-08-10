@@ -16,10 +16,26 @@
 let
     PromoteHeaderAt = (Raw as table, FirstHeaderValue as text) as table =>
         let
+            ColumnNames = Table.ColumnNames(Raw),
+            FirstColumn =
+                if List.IsEmpty(ColumnNames) then
+                    error Error.Record(
+                        "Fx.PromoteHeaderAt",
+                        "Input table has no columns",
+                        "Supply a table with at least one column before locating a header row."
+                    )
+                else if Text.Trim(FirstHeaderValue) = "" then
+                    error Error.Record(
+                        "Fx.PromoteHeaderAt",
+                        "Header value is blank",
+                        "FirstHeaderValue must identify a non-blank first-cell value."
+                    )
+                else
+                    ColumnNames{0},
             Indexed = Table.AddIndexColumn(Raw, "__idx", 0, 1, Int64.Type),
             Matches = Table.SelectRows(
                 Indexed,
-                each Text.Trim(Text.From(Record.Field(_, Table.ColumnNames(Raw){0}) ?? "")) = FirstHeaderValue
+                each Text.Trim(Text.From(Record.Field(_, FirstColumn) ?? "")) = FirstHeaderValue
             )[__idx],
             HeaderIdx =
                 if List.IsEmpty(Matches) then

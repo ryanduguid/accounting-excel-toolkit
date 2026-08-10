@@ -41,6 +41,13 @@ Public Sub CompareKeyedRanges( _
     Err.Raise 5, , "modReconCompare needs Scripting.Dictionary - Windows Excel only."
 #End If
 
+    If rangeA Is Nothing Or rangeB Is Nothing Then
+        Err.Raise 5, , "Both source ranges are required."
+    End If
+    If tolerance < 0 Then
+        Err.Raise 5, , "Tolerance must be zero or greater."
+    End If
+
     Dim skippedRows As Long
     skippedRows = 0
 
