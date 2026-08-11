@@ -17,14 +17,14 @@ lossless: an em dash or a smart quote in a comment arrives as mojibake.
 tools/check_vba_encoding.py` checks the encoding, the line endings and the
 absence of a BOM across the whole folder, subdirectories included.
 
-Both modules are self-contained: no library references to add (`modReconCompare` late-binds `Scripting.Dictionary`). That binding also pins `modReconCompare` to Windows Excel — Mac Excel has no `Scripting.Dictionary` and no reference can supply it. `modWorkpaperFormat` runs on both.
+Both modules are self-contained: no library references to add (`modReconCompare` late-binds `Scripting.Dictionary`). That binding also pins `modReconCompare` to Windows Excel. Mac Excel has no `Scripting.Dictionary` and no reference can supply it. `modWorkpaperFormat` runs on both.
 
 ## Modules
 
 | Module | What it does |
 |---|---|
 | `modWorkpaperFormat` | Standard workpaper header block, reviewer sign-off line, accounting number format, freeze panes |
-| `modReconCompare` | Keyed two-way reconciliation between two (key, amount) ranges with tolerance — subledger vs GL pattern. It replaces only a prior result sheet that it marked itself; a user-created sheet named `Recon Result` is left untouched and the macro stops with instructions |
+| `modReconCompare` | Keyed two-way reconciliation between two (key, amount) ranges with tolerance; subledger vs GL pattern. It replaces only a prior result sheet that it marked itself; a user-created sheet named `Recon Result` is left untouched and the macro stops with instructions |
 
 ## Contributing your own
 
