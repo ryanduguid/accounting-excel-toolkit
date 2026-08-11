@@ -16,7 +16,7 @@ No client data. The `.gitignore` blocks `input/`, `output/`, `clients/`, `export
 
 - `Csv.Document` infers width from the first row, so a one-field title row collapses the parse. Always pass `Columns`, and put a caveat in a full-width trailing row.
 - Typed M parameters such as `(x as date)` reject the shapes Excel actually hands over. Widen the type and use `Date.From(d, "en-AU")` so financial-year results do not follow the machine locale.
-- CSV formula injection: guard `=` always, and `+`, `-`, `@` only when the remainder is not a plain code — otherwise account codes like `-00123` stop joining back to payroll. An A1-style reference such as `+A1` is a formula start, so an "inert remainder" test has to be narrower than "anything alphanumeric".
+- CSV formula injection: guard `=` always, and `+`, `-`, `@` only when the remainder is not a plain code. Otherwise account codes like `-00123` stop joining back to payroll. An A1-style reference such as `+A1` is a formula start, so an "inert remainder" test has to be narrower than "anything alphanumeric".
 - `IsNumeric(True)` is `True` in VBA, so Booleans sum as -1. `Activate` on a hidden sheet activates the visible neighbour. `Scripting.Dictionary` is Windows-only.
 - `Trim$` alone misses non-breaking spaces, tabs and CRLF in reconciliation keys.
 
