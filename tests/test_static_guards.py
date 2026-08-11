@@ -718,8 +718,14 @@ class ReconResultSafetyTests(unittest.TestCase):
 
 
 class WorkpaperFormatSafetyTests(unittest.TestCase):
-    """modReconCompare's write-safety guards are pinned here; this module's
-    were not, so every one of them could be deleted with CI green."""
+    """Pins modWorkpaperFormat's write-safety guards, which nothing pinned
+    before this class existed.
+
+    Not a claim about the sibling module. ReconResultSafetyTests covers only
+    modReconCompare's Nothing and negative-tolerance checks and its
+    result-sheet marker machinery; several of that module's other guards are
+    still unpinned and could be deleted with the suite green.
+    """
 
     def source(self):
         return (ROOT / "vba" / "modWorkpaperFormat.bas").read_text(encoding="utf-8")
