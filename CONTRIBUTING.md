@@ -8,7 +8,7 @@ Keep client data out. The `.gitignore` blocks `input/`, `output/`, `clients/`, `
 
 ## Format rules
 
-- Export VBA as text under `vba/`. The VBE expects CRLF on import, so `.gitattributes` pins `.bas`, `.cls` and `.frm`, and `tools/check_vba_encoding.py` checks them. A renormalised blob shows up in `git diff --check`.
+- Export VBA as text under `vba/`. The VBE expects CRLF on import, so `.gitattributes` marks `.bas`, `.cls` and `.frm` as `-text whitespace=cr-at-eol`, which keeps git from touching their line endings and stops a trailing CR being reported as a whitespace error. That means `git diff --check` will not flag a renormalised blob. `tools/check_vba_encoding.py` is the check that does, and CI runs it.
 - Keep Power Query M under `powerquery/` as plain text.
 - Do not commit `.xlsm` or `.xlsx` as the source of truth for a function or module.
 
