@@ -35,6 +35,23 @@ class TrialBalanceError(Exception):
     swallowing a genuine assertion failure from the same block."""
 
 
+class NativeExcelAcceptanceSafetyTests(unittest.TestCase):
+    def test_native_runner_uses_only_fabricated_inputs_and_always_quits_excel(self):
+        source = (ROOT / "tools" / "native_excel_acceptance.ps1").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("samples\\sample-xero-trial-balance.csv", source)
+        self.assertIn("samples\\sample-xero-trial-balance-columns.csv", source)
+        self.assertIn("$excel.AutomationSecurity = 3", source)
+        self.assertIn("$workbook.Close($false)", source)
+        self.assertIn("$excel.Quit()", source)
+        self.assertIn("finally {", source)
+        self.assertIn("[IO.Path]::GetTempPath()", source)
+        self.assertIn("$workbook.SaveAs($temporaryWorkbook, 51)", source)
+        self.assertIn("Remove-Item -LiteralPath $temporaryWorkbook -Force", source)
+        self.assertNotIn("WScript.Shell", source)
+
+
 def _fixture_rows(path):
     with path.open(newline="", encoding="utf-8") as f:
         return list(csv.reader(f))

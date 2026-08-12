@@ -28,6 +28,24 @@ Python 3.10 or newer drives the test suite.
 python -B -m unittest discover -s tests -v
 ```
 
+On Windows with desktop Excel installed, run the checked-in Power Query
+function in Excel itself against both fabricated Xero fixtures:
+
+```powershell
+powershell -NoProfile -File tools/native_excel_acceptance.ps1
+```
+
+The workbook is saved only under the operating system's temporary directory so
+Power Query has a stable host path, then it is deleted in the runner's `finally`
+block. VBA is not imported by automation because doing so depends on Excel's
+machine-wide **Trust access to the VBA project object model** policy. Test VBA
+in a disposable workbook by importing both `.bas` files, running
+`ApplyWorkpaperHeader` against an entity name beginning with `=`, and running
+`CompareKeyedRanges` against fabricated two-column ranges with a leading-zero
+key. Confirm the header is text rather than a formula, existing rows move down,
+and `Recon Result` carries the expected difference. Do not weaken the Office
+trust policy solely to run this check.
+
 ## Pull requests
 
 Say which function or module you changed and show the fixture that exercises it. For an M change, state the locale and column shape you tested against.
