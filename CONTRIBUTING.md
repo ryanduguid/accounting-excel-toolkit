@@ -28,16 +28,26 @@ Python 3.10 or newer drives the test suite.
 python -B -m unittest discover -s tests -v
 ```
 
-On Windows with desktop Excel installed, run the checked-in Power Query
-function in Excel itself against both fabricated Xero fixtures:
+On Windows with Windows PowerShell 5.1 or newer and desktop Excel installed,
+run every checked-in Power Query function in Excel itself:
 
 ```powershell
 powershell -NoProfile -File tools/native_excel_acceptance.ps1
 ```
 
-The workbook is saved only under the operating system's temporary directory so
-Power Query has a stable host path, then it is deleted in the runner's `finally`
-block. VBA is not imported by automation because doing so depends on Excel's
+Use `-RepositoryRoot D:\src\accounting-excel-toolkit` to test a different
+checkout. The runner requires Excel's Power Query engine and the
+`Microsoft.Mashup.OleDb.1` provider. It exercises exactly 46 real-engine cases:
+both fabricated Xero layouts, period and YTD selection, malformed exports,
+lazy evaluation, AU financial-year boundaries, ABN validation and header
+promotion.
+
+The runner does not write to repository sources or samples. It creates its
+workbook and adverse fixtures in a GUID-named system temporary directory,
+closes the workbook, quits and releases every Excel COM reference in reverse
+order, and removes the directory in its `finally` block.
+
+VBA is not imported by automation because doing so depends on Excel's
 machine-wide **Trust access to the VBA project object model** policy. Test VBA
 in a disposable workbook by importing both `.bas` files, running
 `ApplyWorkpaperHeader` against an entity name beginning with `=`, and running
