@@ -36,20 +36,57 @@ class TrialBalanceError(Exception):
 
 
 class NativeExcelAcceptanceSafetyTests(unittest.TestCase):
-    def test_native_runner_uses_only_fabricated_inputs_and_always_quits_excel(self):
-        source = (ROOT / "tools" / "native_excel_acceptance.ps1").read_text(
+    def source(self):
+        return (ROOT / "tools" / "native_excel_acceptance.ps1").read_text(
             encoding="utf-8"
         )
+
+    def test_native_runner_is_portable_and_uses_only_fabricated_inputs(self):
+        source = self.source()
+        self.assertIn("[string]$RepositoryRoot", source)
+        self.assertIn("(Split-Path -Parent $PSScriptRoot)", source)
+        self.assertNotRegex(source, r"[A-Za-z]:\\Users\\")
         self.assertIn("samples\\sample-xero-trial-balance.csv", source)
         self.assertIn("samples\\sample-xero-trial-balance-columns.csv", source)
-        self.assertIn("$excel.AutomationSecurity = 3", source)
-        self.assertIn("$workbook.Close($false)", source)
-        self.assertIn("$excel.Quit()", source)
-        self.assertIn("finally {", source)
+        self.assertIn("[guid]::NewGuid().ToString('D')", source)
         self.assertIn("[IO.Path]::GetTempPath()", source)
-        self.assertIn("$workbook.SaveAs($temporaryWorkbook, 51)", source)
-        self.assertIn("Remove-Item -LiteralPath $temporaryWorkbook -Force", source)
+        self.assertIn("if ($rowCount -ne 46)", source)
         self.assertNotIn("WScript.Shell", source)
+
+    def test_native_runner_closes_and_releases_every_com_reference_in_finally(self):
+        source = self.source()
+        finally_body = source[source.rindex("finally {") :]
+
+        self.assertIn("$excel.AutomationSecurity = 3", source)
+        self.assertIn("$workbook.SaveAs($temporaryWorkbook, 51)", source)
+        self.assertIn("$workbook.Close($false)", finally_body)
+        self.assertIn("$excel.Quit()", finally_body)
+        self.assertIn(
+            "Remove-Item -LiteralPath $temporaryDirectory -Recurse -Force",
+            finally_body,
+        )
+
+        release_steps = (
+            "Release-ComReference $dataBodyRange",
+            "Release-ComReference $queryTable",
+            "Release-ComReference $listObject",
+            "Release-ComReference $listObjects",
+            "Release-ComReference $targetRange",
+            "Release-ComReference $currentQuery",
+            "for ($index = $createdQueries.Count - 1; $index -ge 0; $index--)",
+            "Release-ComReference $queries",
+            "Release-ComReference $worksheet",
+            "Release-ComReference $worksheets",
+            "Release-ComReference $workbook",
+            "Release-ComReference $workbooks",
+            "Release-ComReference $excel",
+        )
+        positions = []
+        for step in release_steps:
+            with self.subTest(step=step):
+                self.assertIn(step, finally_body)
+                positions.append(finally_body.index(step))
+        self.assertEqual(positions, sorted(positions))
 
 
 def _fixture_rows(path):
