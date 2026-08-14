@@ -56,13 +56,16 @@ jobs:
         run: python -B -m unittest discover -s tests -v
 
       - name: Build deterministic source archives
+        env:
+          TZ: UTC
         shell: bash
         run: |
           set -euo pipefail
           version="$(tr -d '[:space:]' < VERSION)"
-          mkdir dist
-          git archive --format=zip --prefix="accounting-excel-toolkit-$version/" --output="dist/accounting-excel-toolkit-$version.zip" "$GITHUB_SHA"
-          git archive --format=tar.gz --prefix="accounting-excel-toolkit-$version/" --output="dist/accounting-excel-toolkit-$version.tar.gz" "$GITHUB_SHA"
+          python tools/build_release_archives.py \
+            --commit "$GITHUB_SHA" \
+            --prefix "accounting-excel-toolkit-$version/" \
+            --output-base "dist/accounting-excel-toolkit-$version"
 
       - name: Generate SPDX SBOM for the ZIP archive
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
