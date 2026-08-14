@@ -18,7 +18,7 @@ Before tagging:
 
 The existing `v0.1.1` tag is retained as immutable history. [Pilot run 31822769922](https://github.com/ryanduguid/accounting-excel-toolkit/actions/runs/31822769922) stopped on the now-removed workflow attempt to read this Administration setting, before any build or publication step; no `v0.1.1` release or assets were created. Do not move or delete that tag. The next release is `v0.1.2`.
 
-The workflow reruns the regression suite, builds deterministic ZIP and tar.gz source archives, generates an SPDX 2.3 SBOM and `SHA256SUMS`, records GitHub provenance and SBOM attestations, then publishes a draft release only after every asset is uploaded. Existing releases are refused rather than overwritten.
+The workflow reruns the regression suite, builds deterministic ZIP and tar.gz source archives, generates an SPDX 2.3 SBOM and `SHA256SUMS`, records GitHub provenance and SBOM attestations, then publishes a draft release only after every asset is uploaded. The archive helper fixes the timezone to UTC and Git text conversion to LF so the same tagged tree produces the same archive bytes on Linux and Windows. Existing releases are refused rather than overwritten.
 
 After publication, download the assets and verify them:
 
