@@ -19,7 +19,7 @@ let
     ABNIsValid = (abn as any) as logical =>
         let
             textAttempt = try Text.From(abn ?? "", "en-AU"),
-            // Validate the converted value before normalization. Text.Trim also
+            // Validate the converted value before normalisation. Text.Trim also
             // removes tabs, newlines, and other whitespace that this contract rejects.
             raw = if textAttempt[HasError] then "" else textAttempt[Value],
             allowedFormatting = Text.Select(raw, {"0".."9", " "}) = raw,
