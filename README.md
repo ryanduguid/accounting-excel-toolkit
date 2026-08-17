@@ -38,7 +38,7 @@ Importable `.bas` source in [`vba/`](vba/). See [`vba/README.md`](vba/README.md)
 
 ## Roadmap
 
-Aged receivables/payables parser, MYOB export parsers, Office Scripts ports of the VBA modules, auto-generated function catalog.
+Aged receivables/payables parser, MYOB export parsers, Office Scripts ports of the VBA modules, auto-generated function catalogue.
 
 ## Related
 
