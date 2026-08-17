@@ -1,8 +1,8 @@
 // Fx.AUFinancialYear
-// Australian financial year (1 July – 30 June) attributes for any date.
+// Australian financial year (1 July to 30 June) attributes for any date.
 // Returns a record: Label ("FY2026"), StartDate, EndDate, EndYear.
 //
-// Date, datetime and datetimezone values are accepted — Excel hands back
+// Date, datetime and datetimezone values are accepted: Excel hands back
 // date cells as datetime unless a Changed Type step has already run. A
 // datetimezone is CONVERTED to Australian Eastern Standard Time (+10:00)
 // and read there, so the same instant gets the same FY on a Sydney desktop

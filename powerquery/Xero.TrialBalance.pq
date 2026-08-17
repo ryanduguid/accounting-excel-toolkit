@@ -3,23 +3,23 @@
 //
 // Xero ships the TB in two layouts, told apart by the header row's first
 // field:
-//   "Account"      — combined layout (API / report exports): code and name
+//   "Account"      - combined layout (API / report exports): code and name
 //                    share one cell, "Business Bank Account (090)".
-//   "Account Code" — separate-column layout (current UI CSV export):
+//   "Account Code" - separate-column layout (current UI CSV export):
 //                    "Account Code" and "Account Name" columns.
 // Both come out the same shape: AccountCode, AccountName, then the export's
 // remaining columns.
 //
 // Handles three traps in Xero's export format:
 //   1. Metadata rows above the real header (report title, entity, date).
-//      Csv.Document infers column count from the FIRST row — a one-field
-//      title row would collapse the whole file to one column — so the header
+//      Csv.Document infers column count from the FIRST row. A one-field
+//      title row would collapse the whole file to one column, so the header
 //      row is located first and its width passed in explicitly.
 //   2. Two column pairs with different meanings: "Debit"/"Credit" hold the
 //      current-period MOVEMENT, "YTD Debit"/"YTD Credit" hold the AS-AT
 //      balances, and a full export carries both. Default takes the YTD
-//      (as-at) pair when present — the balances a trial balance is loaded
-//      for — else the period pair. Pass useYTD = true to require the YTD
+//      (as-at) pair when present (the balances a trial balance is loaded
+//      for), else the period pair. Pass useYTD = true to require the YTD
 //      pair, useYTD = false to take the period pair; either explicit
 //      choice errors when the export lacks that pair.
 //   3. The trailing Total row (dropped; recompute totals, don't trust them).
@@ -27,14 +27,14 @@
 // Combined-layout cells split on the trailing " (code)" parenthetical; a
 // "090 - Business Bank Account" dash prefix (Xero's account-picker display
 // shape) still splits as a fallback. A code is alphanumeric, at most 10
-// characters, with at least one digit ("090", "GST1") — so "Rent (Sydney)"
+// characters, with at least one digit ("090", "GST1"), so "Rent (Sydney)"
 // keeps its parenthetical and a purely alphabetic prefix ("Interest - Bank")
 // stays in the name. Codes are forced to text so leading zeros survive;
 // code-less accounts (Xero bank and credit-card accounts) carry null.
 //
 // Usage: Xero.TrialBalance("C:\exports\entity-tb-2026-06-30-accrual.csv")
 //        Xero.TrialBalance(path, false)   // period movement, not as-at
-// Check after load (tolerance, not exact = — the sums are IEEE doubles):
+// Check after load (the sums are IEEE doubles, so tolerance, not exact =):
 //   Number.Abs(List.Sum(result[Debit]) - List.Sum(result[Credit])) < 0.005
 let
     TrialBalance = (FilePath as text, optional useYTD as nullable logical) as table =>
@@ -44,7 +44,7 @@ let
             // so the one-field title row can't collapse the column count.
             // The header is the line whose FIRST FIELD is exactly "Account"
             // (combined layout) or "Account Code" (separate-column layout)
-            // — a prefix match would be hijacked by an entity name like
+            // because a prefix match would be hijacked by an entity name like
             // "Accountable Plumbing Pty Ltd" on the metadata rows above.
             lines = Lines.FromBinary(fileBinary, null, null, 65001),
             headerLines = List.Select(
@@ -59,7 +59,7 @@ let
                     error Error.Record(
                         "Xero.TrialBalance",
                         "Header row not found",
-                        "No line has ""Account"" or ""Account Code"" as its first field — not a Xero TB export, or the format changed."
+                        "No line has ""Account"" or ""Account Code"" as its first field: not a Xero TB export, or the format changed."
                     )
                 else
                     List.First(headerLines),
@@ -83,7 +83,7 @@ let
                     error Error.Record(
                         "Xero.TrialBalance",
                         "Header row not found",
-                        "Header line detected in raw text but not in the parsed CSV — format changed."
+                        "Header line detected in raw text but not in the parsed CSV: format changed."
                     )
                 else
                     List.Min(HeaderMatches),
@@ -117,7 +117,7 @@ let
                     )
                 else
                     Table.RemoveColumns(Promoted, {"YTD Debit", "YTD Credit"}, MissingField.Ignore),
-            // Drop blank rows and Xero's Total row. Exactly "Total" only —
+            // Drop blank rows and Xero's Total row. Exactly "Total" only:
             // a starts-with test would also delete a code-less account
             // named "Total Tools Trade Card". In the separate-column layout
             // the total row carries "Total" in either cell, code blank.
@@ -139,7 +139,7 @@ let
                             and Text.Trim(Text.From([Account])) <> "Total"
                     ),
             // Culture pinned to en-AU: Xero CSVs always use "." decimal, but
-            // an unpinned Number.From follows the machine locale — de-DE
+            // an unpinned Number.From follows the machine locale; de-DE
             // reads "15234.50" as 1523450. Blank cells are genuine zeros;
             // anything else that won't parse ("TBC", "#REF!") errors loudly
             // instead of becoming a 0 that still balances.
@@ -151,7 +151,7 @@ let
                         otherwise error Error.Record(
                             "Xero.TrialBalance",
                             "Amount is not a number",
-                            "Debit/Credit cell """ & t & """ won't parse as a number — fix the export before loading."
+                            "Debit/Credit cell """ & t & """ won't parse as a number. Fix the export before loading."
                         ),
             Typed = Table.TransformColumns(
                 Body,
@@ -227,7 +227,7 @@ let
                         )
                     in
                         Table.RemoveColumns(WithName, {"Account"}),
-            // Same output shape from both layouts — AccountCode and
+            // Same output shape from both layouts: AccountCode and
             // AccountName up front, the export's remaining columns after.
             Result = Table.ReorderColumns(
                 Parsed,
