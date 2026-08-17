@@ -8,7 +8,7 @@
 // identifiable by its first cell ("Account", "Contact", "Date", ...).
 //
 // CAUTION when the source is Csv.Document: pass an explicit Columns count
-// (e.g. [Delimiter=",", Columns=8]) — Csv.Document infers width from the
+// (e.g. [Delimiter=",", Columns=8]). Csv.Document infers width from the
 // FIRST row, and a one-field title row collapses the whole file to one
 // column before this function ever sees it.
 //
@@ -50,7 +50,7 @@ let
                     error Error.Record(
                         "Fx.PromoteHeaderAt",
                         "Header row not found",
-                        "No row has """ & Wanted & """ as its first cell — wrong report, or the export format changed."
+                        "No row has """ & Wanted & """ as its first cell: wrong report, or the export format changed."
                     )
                 else
                     List.Min(Matches),
