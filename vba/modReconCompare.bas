@@ -4,6 +4,11 @@ Option Explicit
 Private Const RESULT_SHEET_NAME As String = "Recon Result"
 Private Const RESULT_TAG_NAME As String = "__ReconCompareResultSheet"
 
+' Kept byte-identical to ACCOUNTING_NUMBER_FORMAT in modWorkpaperFormat.bas -
+' each module imports stand-alone, so each carries its own copy of the
+' accounting format; tests/test_static_guards.py pins the two together.
+Private Const ACCOUNTING_NUMBER_FORMAT As String = "#,##0.00_);(#,##0.00);""-""??_)"
+
 ' modReconCompare
 ' Keyed two-way reconciliation between two ranges - the "why doesn't the
 ' subledger agree to the GL" workhorse. Late-bound Scripting.Dictionary,
@@ -119,7 +124,7 @@ Public Sub CompareKeyedRanges( _
     ' A clean recon leaves outRow = 2 - the reversed corner pair would then
     ' normalise to the B1:D2 bounding box and format the header row.
     If outRow > 2 Then
-        ws.Range(ws.Cells(2, 2), ws.Cells(outRow - 1, 4)).NumberFormat = "#,##0.00_);(#,##0.00);""-""??_)"
+        ws.Range(ws.Cells(2, 2), ws.Cells(outRow - 1, 4)).NumberFormat = ACCOUNTING_NUMBER_FORMAT
     End If
     ws.Columns("A:D").AutoFit
 
