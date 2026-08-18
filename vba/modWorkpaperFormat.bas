@@ -1,6 +1,11 @@
 Attribute VB_Name = "modWorkpaperFormat"
 Option Explicit
 
+' Kept byte-identical to ACCOUNTING_NUMBER_FORMAT in modReconCompare.bas -
+' each module imports stand-alone, so each carries its own copy of the
+' accounting format; tests/test_static_guards.py pins the two together.
+Private Const ACCOUNTING_NUMBER_FORMAT As String = "#,##0.00_);(#,##0.00);""-""??_)"
+
 ' modWorkpaperFormat
 ' Standard workpaper presentation: header block, prepared-by stamp, and
 ' number formatting that matches how a reviewer expects a workpaper to read.
@@ -64,7 +69,7 @@ End Sub
 ' Applies accounting number format (thousands separator, bracketed negatives,
 ' dash for zero) to a range - the format reviewers expect on workpapers.
 Public Sub FormatAsAccounting(ByVal target As Range)
-    target.NumberFormat = "#,##0.00_);(#,##0.00);""-""??_)"
+    target.NumberFormat = ACCOUNTING_NUMBER_FORMAT
 End Sub
 
 ' Freezes panes below the header block (the 5 rows ApplyWorkpaperHeader

@@ -849,6 +849,33 @@ class WorkpaperFormatSafetyTests(unittest.TestCase):
         self.assertIn("SearchOrder:=xlByRows", source)
         self.assertIn("SearchDirection:=xlPrevious", source)
 
+    def test_accounting_number_format_is_identical_in_both_modules(self):
+        """Each module imports stand-alone, so the accounting number format
+        lives as a private copy in modWorkpaperFormat AND modReconCompare
+        rather than as one shared constant.  Nothing tied the copies
+        together: edit one - a different zero dash, a red-negative variant -
+        and workpapers and recon results render the same amounts differently,
+        with the suite green.  Pinned as one exact declaration in both files,
+        like the header-slice pair, so a deliberate format change has to land
+        in both modules and here.  The count keeps each module to the single
+        constant, so a third inline copy cannot creep back in beside it."""
+        declaration = (
+            "Private Const ACCOUNTING_NUMBER_FORMAT As String = "
+            '"#,##0.00_);(#,##0.00);""-""??_)"'
+        )
+        recon = (ROOT / "vba" / "modReconCompare.bas").read_text(encoding="utf-8")
+        workpaper = self.source()
+        for name, source in (
+            ("modReconCompare.bas", recon),
+            ("modWorkpaperFormat.bas", workpaper),
+        ):
+            with self.subTest(module=name):
+                self.assertIn(declaration, source)
+                self.assertEqual(source.count('"#,##0.00_);(#,##0.00);""-""??_)"'), 1)
+        # Binding the constant is not using it.
+        self.assertIn(".NumberFormat = ACCOUNTING_NUMBER_FORMAT", recon)
+        self.assertIn("target.NumberFormat = ACCOUNTING_NUMBER_FORMAT", workpaper)
+
     def test_module_stays_crlf_for_the_vbe_import(self):
         """CRLF means both halves.  Stripping CRLF pairs and looking only for
         a bare LF passes a CR-only file untouched - nothing is stripped and
