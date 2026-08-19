@@ -23,6 +23,14 @@ Public Sub ApplyWorkpaperHeader( _
 
     If ws.ProtectContents Then Err.Raise 5, , "Sheet '" & ws.Name & "' is protected - unprotect it first."
 
+    ' Header already applied? A3 always starts with the fixed period-end
+    ' prefix this sub writes, and nothing else on a fresh workpaper does.
+    ' Inserting again would stack a second header block on top of the
+    ' first, so a repeat call exits with the sheet untouched. The check
+    ' reads the cell value only - no metadata APIs, so it behaves the
+    ' same on every Excel host.
+    If Left$(CStr(ws.Range("A3").Value), 21) = "For the period ended " Then Exit Sub
+
     ' A live cut/copy marquee turns Insert into a paste - the clipboard
     ' block would land in rows 1:5 instead of blank rows
     Application.CutCopyMode = False
