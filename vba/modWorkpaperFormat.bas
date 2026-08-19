@@ -40,8 +40,19 @@ Public Sub ApplyWorkpaperHeader( _
         .Range("A1:A2").Font.Bold = True
         .Range("A1").Font.Size = 12
         .Range("A4").Font.Italic = True
-        .Range("A5:H5").Borders(xlEdgeBottom).LineStyle = xlContinuous
     End With
+
+    ' Bottom border spans the sheet's used width so a workpaper wider
+    ' than column H gets a full-width rule. On an empty sheet UsedRange
+    ' is meaningless (it reports a single cell), and a narrow sheet
+    ' should keep the classic A5:H5 look - both cases fall back to
+    ' column H (8).
+    Dim lastCol As Long
+    With ws.UsedRange
+        lastCol = .Columns(.Columns.Count).Column
+    End With
+    If lastCol < 8 Then lastCol = 8
+    ws.Range(ws.Cells(5, 1), ws.Cells(5, lastCol)).Borders(xlEdgeBottom).LineStyle = xlContinuous
 End Sub
 
 ' Adds a reviewer sign-off line below the last used row.
