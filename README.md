@@ -21,12 +21,14 @@ Power BI is the same from step 3 onward: **Get Data**, **Blank Query**, then **A
 
 | Function | Category | What it does |
 |---|---|---|
-| [`Xero.TrialBalance`](powerquery/Xero.TrialBalance.pq) | Xero | Parse a Xero TB CSV: skips metadata rows, picks the right Debit/Credit pair (plain pair = period movement, YTD pair = as-at balances; default returns as-at, `useYTD = false` for movement), drops Total row, splits account code as text (alphanumeric up to 10 chars with at least one digit, leading zeros survive). Handles both export layouts: the combined account cell (`Business Bank Account (090)`) and the separate Account Code / Account Name columns of the current UI export |
+| [`Xero.TrialBalance`](powerquery/Xero.TrialBalance.pq) | Xero | Parse a Xero TB CSV: skips metadata rows, picks the right Debit/Credit pair (plain pair = period movement, YTD pair = as-at balances; default returns as-at, `useYTD = false` for movement), drops Total row, splits account code as text (alphanumeric up to 10 chars with at least one digit, leading zeros survive). Handles two observed CSV layouts: a combined account cell (`Business Bank Account (090)`) and separate `Account Code` / `Account Name` columns |
 | [`Fx.PromoteHeaderAt`](powerquery/Fx.PromoteHeaderAt.pq) | Generic | Find-and-promote the real header row in any ledger export that buries it below title rows; errors clearly when the format changed |
 | [`Fx.AUFinancialYear`](powerquery/Fx.AUFinancialYear.pq) | AU helpers | FY label, start, end for any date (1 July to 30 June); timezone-stamped values are read in AEST (+10), so an instant in the last two hours of 30 June in Perth (last 30 minutes in Adelaide/Darwin) lands in FY+1 unless you switch the zone first |
 | [`Fx.ABNIsValid`](powerquery/Fx.ABNIsValid.pq) | AU helpers | ABN checksum validation (ATO weighting algorithm); checksum ≠ registered, so check ABN Lookup for status |
 
 Test against [`samples/sample-xero-trial-balance.csv`](samples/sample-xero-trial-balance.csv) (combined layout) and [`samples/sample-xero-trial-balance-columns.csv`](samples/sample-xero-trial-balance-columns.csv) (separate-column layout). Both are fabricated, balanced TBs carrying the same accounts and amounts in both shapes, plus both the period-movement and YTD (as-at) pairs so the pair selection gets exercised. They also include a code-less `Rent (Sydney)` account: it must load with a null `AccountCode` and its full name intact.
+
+The separate `Account Code` / `Account Name` column shape was observed in Xero's interactive Trial Balance CSV export on 20 August 2026. The checked-in CSVs are fabricated fixtures, and their static and native acceptance checks establish parser behaviour for these two shapes only, not an official or stable Xero interactive-export schema. If Xero changes the interactive report or export UI, validate the parser with a fresh non-client export kept outside the repository before relying on it.
 
 After loading a TB, the first check is always: `Number.Abs(List.Sum(result[Debit]) - List.Sum(result[Credit])) < 0.005`, a tolerance, because the sums are IEEE doubles and exact `=` can fail on a genuinely balanced TB.
 
