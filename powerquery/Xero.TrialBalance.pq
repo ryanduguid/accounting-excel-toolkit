@@ -1,14 +1,18 @@
 // Xero.TrialBalance
 // Parse a Xero Trial Balance CSV export into a typed table.
 //
-// Xero ships the TB in two layouts, told apart by the header row's first
-// field:
-//   "Account"      - combined layout (API / report exports): code and name
-//                    share one cell, "Business Bank Account (090)".
-//   "Account Code" - separate-column layout (current UI CSV export):
-//                    "Account Code" and "Account Name" columns.
+// Accepts two CSV header shapes, told apart by the header row's first field:
+//   "Account"      - combined account cell: code and name in one field.
+//   "Account Code" - separate "Account Code" and "Account Name" fields.
 // Both come out the same shape: AccountCode, AccountName, then the export's
 // remaining columns.
+//
+// The separate-column shape was observed in Xero's interactive Trial Balance
+// CSV export on 20 August 2026. The checked-in CSVs are fabricated fixtures,
+// and their checks establish parser behaviour for these supported shapes only,
+// not an official or stable Xero interactive-export schema. If Xero changes
+// the interactive report/export UI, revalidate the parser before relying on it.
+// Use a fresh non-client export kept outside the repository for that check.
 //
 // Handles three traps in Xero's export format:
 //   1. Metadata rows above the real header (report title, entity, date).

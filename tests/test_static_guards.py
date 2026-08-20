@@ -9,7 +9,11 @@ releasing changes to the modules.
 
 import csv
 import re
+import shutil
 import string
+import subprocess
+import sys
+import tempfile
 import unittest
 from collections import namedtuple
 from decimal import Decimal
@@ -43,8 +47,58 @@ class NativeExcelAcceptanceSafetyTests(unittest.TestCase):
 
     def test_native_runner_is_portable_and_uses_only_fabricated_inputs(self):
         source = self.source()
-        self.assertIn("[string]$RepositoryRoot", source)
-        self.assertIn("(Split-Path -Parent $PSScriptRoot)", source)
+        parameter_match = re.search(
+            r"(?ms)^param\(\s*(.*?)^\)\s*$",
+            source,
+        )
+        self.assertIsNotNone(parameter_match)
+        parameter_block = parameter_match.group(1)
+
+        # Windows PowerShell 5.1 binds an omitted [string] parameter as the
+        # empty string.  Its initializer must stay empty: $PSScriptRoot is
+        # itself empty when a -File parameter default is evaluated.
+        self.assertRegex(
+            parameter_block,
+            r"(?m)^\s*\[string\]\$RepositoryRoot\s*$",
+        )
+        self.assertNotRegex(parameter_block, r"\$RepositoryRoot\s*=")
+        self.assertNotIn("$PSScriptRoot", parameter_block)
+        self.assertNotIn("$MyInvocation", parameter_block)
+
+        body = source[parameter_match.end() :]
+        empty_guard = "[string]::IsNullOrWhiteSpace($RepositoryRoot)"
+        script_path = "$scriptPath = $MyInvocation.MyCommand.Path"
+        script_directory = "$scriptDirectory = Split-Path -Parent $scriptPath"
+        default_root = "$RepositoryRoot = Split-Path -Parent $scriptDirectory"
+        resolve_root = (
+            "$repository = (Resolve-Path -LiteralPath $RepositoryRoot "
+            "-ErrorAction Stop).ProviderPath"
+        )
+        for required in (
+            empty_guard,
+            script_path,
+            script_directory,
+            default_root,
+            resolve_root,
+        ):
+            with self.subTest(required=required):
+                self.assertIn(required, body)
+
+        positions = [
+            body.index(empty_guard),
+            body.index(script_path),
+            body.index(script_directory),
+            body.index(default_root),
+            body.index(resolve_root),
+            body.index("Join-Path $repository"),
+        ]
+        self.assertEqual(positions, sorted(positions))
+
+        preflight_error = 'throw "Required repository path is missing: $requiredPath"'
+        temporary_creation = "New-Item -ItemType Directory -Path $temporaryDirectory"
+        excel_creation = "New-Object -ComObject Excel.Application"
+        self.assertLess(body.index(preflight_error), body.index(temporary_creation))
+        self.assertLess(body.index(temporary_creation), body.index(excel_creation))
         self.assertNotRegex(source, r"[A-Za-z]:\\Users\\")
         self.assertIn("samples\\sample-xero-trial-balance.csv", source)
         self.assertIn("samples\\sample-xero-trial-balance-columns.csv", source)
@@ -52,6 +106,106 @@ class NativeExcelAcceptanceSafetyTests(unittest.TestCase):
         self.assertIn("[IO.Path]::GetTempPath()", source)
         self.assertIn("if ($rowCount -ne 46)", source)
         self.assertNotIn("WScript.Shell", source)
+
+    @unittest.skipUnless(
+        sys.platform == "win32" and shutil.which("powershell.exe"),
+        "requires Windows PowerShell 5.1",
+    )
+    def test_repository_root_binding_reaches_required_path_preflight(self):
+        script = ROOT / "tools" / "native_excel_acceptance.ps1"
+
+        def run(script_path, repository_root=None, cwd=None):
+            command = [
+                shutil.which("powershell.exe"),
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(script_path),
+            ]
+            if repository_root is not None:
+                command.extend(["-RepositoryRoot", str(repository_root)])
+            return subprocess.run(
+                command,
+                cwd=cwd,
+                capture_output=True,
+                text=True,
+                errors="replace",
+                check=False,
+            )
+
+        def assert_missing_powerquery(result, repository_root):
+            output = result.stdout + result.stderr
+            # Windows PowerShell 5.1 hard-wraps rendered error records at its
+            # host width even when stderr is redirected.  Fold those display
+            # continuations before comparing the complete canonical path.
+            unwrapped_output = re.sub(r"\r?\n\s*", "", output)
+            expected = str(repository_root.resolve() / "powerquery")
+            self.assertEqual(result.returncode, 1, output)
+            self.assertIn(
+                "Required repository path is missing: " + expected,
+                unwrapped_output,
+            )
+            self.assertNotIn("Cannot bind argument to parameter 'Path'", output)
+            self.assertNotIn(
+                "Desktop Microsoft Excel could not be started",
+                output,
+            )
+
+        with tempfile.TemporaryDirectory(
+            prefix="accounting excel toolkit "
+        ) as temporary_name:
+            temporary_root = Path(temporary_name)
+
+            # Only the script exists under this default repository root.  The
+            # missing powerquery directory stops execution before the GUID
+            # directory, workbook and Excel.Application are created.
+            default_root = temporary_root / "default root with spaces"
+            copied_script = default_root / "tools" / script.name
+            copied_script.parent.mkdir(parents=True)
+            shutil.copy2(script, copied_script)
+            with self.subTest(case="omitted parameter"):
+                result = run(copied_script)
+                assert_missing_powerquery(result, default_root)
+
+            absolute_root = temporary_root / "absolute root with spaces"
+            absolute_root.mkdir()
+            with self.subTest(case="absolute explicit root"):
+                result = run(script, absolute_root)
+                assert_missing_powerquery(result, absolute_root)
+
+            relative_root = temporary_root / "relative root with spaces"
+            relative_root.mkdir()
+            with self.subTest(case="caller-relative explicit root"):
+                result = run(script, relative_root.name, cwd=temporary_root)
+                assert_missing_powerquery(result, relative_root)
+
+    def test_xero_layout_provenance_stays_qualified(self):
+        documents = (
+            ROOT / "README.md",
+            ROOT / "powerquery" / "Xero.TrialBalance.pq",
+        )
+        for document in documents:
+            source = document.read_text(encoding="utf-8")
+            prose = " ".join(source.split())
+            with self.subTest(document=document.name):
+                self.assertIn("20 August 2026", prose)
+                self.assertIn("fabricated fixtures", prose)
+                self.assertIn(
+                    "not an official or stable Xero interactive-export schema",
+                    prose,
+                )
+                self.assertIn(
+                    "fresh non-client export kept outside the repository",
+                    prose,
+                )
+                for unsupported in (
+                    "Xero ships",
+                    "API / report exports",
+                    "current UI export",
+                    "current UI CSV export",
+                ):
+                    self.assertNotIn(unsupported, source)
 
     def test_native_runner_closes_and_releases_every_com_reference_in_finally(self):
         source = self.source()
