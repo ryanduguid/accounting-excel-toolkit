@@ -29,11 +29,22 @@ powershell -NoProfile -File .\tools\native_excel_acceptance.ps1 -RepositoryRoot 
 param(
     [Parameter(Position = 0)]
     [ValidateNotNullOrEmpty()]
-    [string]$RepositoryRoot = (Split-Path -Parent $PSScriptRoot)
+    [string]$RepositoryRoot
 )
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+
+if ([string]::IsNullOrWhiteSpace($RepositoryRoot)) {
+    $scriptPath = $MyInvocation.MyCommand.Path
+    if ([string]::IsNullOrWhiteSpace($scriptPath)) {
+        throw 'Could not determine the native acceptance script path.'
+    }
+    $scriptDirectory = Split-Path -Parent $scriptPath
+    $RepositoryRoot = Split-Path -Parent $scriptDirectory
+}
+
+$repository = (Resolve-Path -LiteralPath $RepositoryRoot -ErrorAction Stop).ProviderPath
 
 $script:cleanupFailed = $false
 
@@ -107,7 +118,6 @@ if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) {
     throw 'Native Excel acceptance requires Windows and desktop Microsoft Excel.'
 }
 
-$repository = (Resolve-Path -LiteralPath $RepositoryRoot).ProviderPath
 $powerQueryDirectory = Join-Path $repository 'powerquery'
 $combinedFixture = Join-Path $repository 'samples\sample-xero-trial-balance.csv'
 $columnsFixture = Join-Path $repository 'samples\sample-xero-trial-balance-columns.csv'
