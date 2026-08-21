@@ -5,6 +5,11 @@ producer contract emitted by `payday-super-checker`. Its checked-in sample is
 fabricated. It is not a Xero or MYOB export parser, and it does not make an
 accounting, legal or exposure decision.
 
+## Contracted parsers
+
+- `PaydaySuper.Report`: Fixed 18-column CSV producer contract emitted by `payday-super-checker`.
+- `Xero.AgedReceivables`: Observed Xero aged receivables summary CSV export contract. Reconciles bucket columns against row and summary totals and coerces contact keys to text.
+
 ## Next evidence gate: observed Xero aged receivables/payables
 
 Before adding a Xero aged receivables or aged payables parser, collect a fresh,
