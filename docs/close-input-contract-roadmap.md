@@ -1,0 +1,37 @@
+# Close-input contract roadmap
+
+`PaydaySuper.Report` is intentionally limited to the documented 18-column
+producer contract emitted by `payday-super-checker`. Its checked-in sample is
+fabricated. It is not a Xero or MYOB export parser, and it does not make an
+accounting, legal or exposure decision.
+
+## Next evidence gate: observed Xero aged receivables/payables
+
+Before adding a Xero aged receivables or aged payables parser, collect a fresh,
+non-client interactive export outside this repository and record only the
+minimum non-sensitive shape evidence needed for a fabricated fixture. Establish
+the exact header names, title rows, ageing-bucket labels, sign convention,
+currency treatment, contact/reference fields, totals and report-date semantics.
+
+Do not infer a schema from a trial balance export, the Xero API, screenshots,
+help articles or a differently configured report. A future parser must name
+the observed export mode and date, accept headers by name, preserve source
+values, reject a changed shape clearly, and add fabricated static plus native
+Excel acceptance cases before it is documented as supported.
+
+## Later evidence gate: MYOB-specific parsers
+
+MYOB-specific parsers follow only after an independently observed MYOB export
+is available. Treat each MYOB product, report and export mode as a separate
+contract: do not reuse Xero assumptions or label an unobserved layout as MYOB
+support. Use the same fabricated-fixture, named-header, hostile-input and
+native-engine acceptance requirements as the Xero gate.
+
+## Boundaries that remain in force
+
+- Keep actual client exports outside the repository; commit fabricated samples
+  only.
+- Preserve source status, verdicts, caveats, notes, identifiers and amounts.
+  Any reconciliation, materiality or close decision remains a human review.
+- Do not add OAuth, network calls, Excel automation, write-back or cross-repo
+  runtime dependencies to an input adapter.

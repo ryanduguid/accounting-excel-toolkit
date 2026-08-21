@@ -22,6 +22,7 @@ Power BI is the same from step 3 onward: **Get Data**, **Blank Query**, then **A
 | Function | Category | What it does |
 |---|---|---|
 | [`Xero.TrialBalance`](powerquery/Xero.TrialBalance.pq) | Xero | Parse a Xero TB CSV: skips metadata rows, picks the right Debit/Credit pair (plain pair = period movement, YTD pair = as-at balances; default returns as-at, `useYTD = false` for movement), drops Total row, splits account code as text (alphanumeric up to 10 chars with at least one digit, leading zeros survive). Handles two observed CSV layouts: a combined account cell (`Business Bank Account (090)`) and separate `Account Code` / `Account Name` columns |
+| [`PaydaySuper.Report`](powerquery/PaydaySuper.Report.pq) | Close inputs | Load the fixed 18-column `payday-super-checker` report contract by header name. It keeps IDs as text, retains the producer's raw `verdict`, caveats, notes and unassessable range, types producer amounts without recalculating them, and returns the terminal provenance separately as metadata |
 | [`Fx.PromoteHeaderAt`](powerquery/Fx.PromoteHeaderAt.pq) | Generic | Find-and-promote the real header row in any ledger export that buries it below title rows; errors clearly when the format changed |
 | [`Fx.AUFinancialYear`](powerquery/Fx.AUFinancialYear.pq) | AU helpers | FY label, start, end for any date (1 July to 30 June); timezone-stamped values are read in AEST (+10), so an instant in the last two hours of 30 June in Perth (last 30 minutes in Adelaide/Darwin) lands in FY+1 unless you switch the zone first |
 | [`Fx.ABNIsValid`](powerquery/Fx.ABNIsValid.pq) | AU helpers | ABN checksum validation (ATO weighting algorithm); checksum ≠ registered, so check ABN Lookup for status |
@@ -31,6 +32,12 @@ Test against [`samples/sample-xero-trial-balance.csv`](samples/sample-xero-trial
 The separate `Account Code` / `Account Name` column shape was observed in Xero's interactive Trial Balance CSV export on 20 August 2026. The checked-in CSVs are fabricated fixtures, and their static and native acceptance checks establish parser behaviour for these two shapes only, not an official or stable Xero interactive-export schema. If Xero changes the interactive report or export UI, validate the parser with a fresh non-client export kept outside the repository before relying on it.
 
 After loading a TB, the first check is always: `Number.Abs(List.Sum(result[Debit]) - List.Sum(result[Credit])) < 0.005`, a tolerance, because the sums are IEEE doubles and exact `=` can fail on a genuinely balanced TB.
+
+`PaydaySuper.Report` accepts the named, 18-column CSV producer contract from `payday-super-checker`; additional producer columns are ignored, but a renamed, missing or duplicate contract header raises an error. [`samples/sample-payday-super-report.csv`](samples/sample-payday-super-report.csv) is a wholly fabricated Payday Super report. It includes a leading-zero ID and a formula-like ID already escaped with an apostrophe so both remain text through the adapter.
+
+The full-width terminal provenance record has `employee_id = NOTE`, provenance in `notes`, and blank values in every other contract field. The function removes only that shape from the returned table and retains its `notes` value in table metadata as `PaydaySuperProvenance` (for example, `Value.Metadata(PaydaySuper_Report(path))[PaydaySuperProvenance]`). A contribution whose literal employee identifier is `NOTE` remains data when its contribution fields are populated. Ordinary table loads reject an absent, duplicate, non-terminal or empty-provenance record, a report with no contribution rows, and a CSV ending inside a quoted field without requiring the caller to inspect metadata. This includes malformed quoting in an otherwise ignored extra producer column. Every CSV record must contain the same number of fields as the header: a present empty trailing field is valid, while an absent field is malformed. The adapter does not convert `UNKNOWN` into exposure, derive a replacement verdict or recompute any amount: the raw `verdict` and every producer caveat, note and amount remain authoritative for professional review.
+
+For the deliberately unimplemented next contracts, see [the close-input contract roadmap](docs/close-input-contract-roadmap.md). It separates this known producer contract from future observed Xero aged receivables/payables and MYOB-specific parsers.
 
 ## VBA modules
 
@@ -55,7 +62,7 @@ To import a module into Excel:
 Three layers check this repository, and each covers different ground:
 
 - **CI (GitHub Actions, [`verify.yml`](.github/workflows/verify.yml))** runs the Python suite in `tests/` on every push and pull request, with no Excel present. These are static source checks: they read the `.pq` and `.bas` files as text and pin the guards, constants and structures the docs promise. Covered: the M parsers' predicates, pair selection, header promotion and AEST conversion expressions; the VBA recon sheet-marker safety logic and protected-sheet guards; the accounting number format staying byte-identical across both modules; `.bas` files staying ASCII with CRLF endings; sample fixtures balancing and matching across both layouts; README sentences the test docstrings quote; release archive determinism; and the PowerShell runner's own safety properties (portability, fabricated inputs only, COM cleanup). CI never executes M or VBA.
-- **[`tools/native_excel_acceptance.ps1`](tools/native_excel_acceptance.ps1)** runs the Power Query functions for real. It loads every checked-in `.pq` file into a disposable workbook and evaluates 46 checks in Excel's actual Power Query engine: both fabricated trial-balance layouts, financial-year boundaries, ABN validation, header promotion, and adverse and lazy-evaluation branches. It needs Windows, Windows PowerShell 5.1+, desktop Excel with Power Query, and the `Microsoft.Mashup.OleDb.1` provider. It does not import or execute VBA.
+- **[`tools/native_excel_acceptance.ps1`](tools/native_excel_acceptance.ps1)** runs the Power Query functions for real. It evaluates 72 checks in Excel's actual Power Query engine: both fabricated trial-balance layouts, the fabricated Payday Super producer contract, financial-year boundaries, ABN validation, header promotion, and adverse and lazy-evaluation branches. The default run isolates the 46 core checks and 26 Payday Super checks in fresh child PowerShell and Excel processes; the Payday child uses 20 separate single-source queries across 19 fabricated files to avoid Excel's cross-source privacy/firewall composition boundary. The suite also preserves a quoted multiline field, materialises 500-, 5,000- and 10,000-contribution fabricated reports, and prints each measured refresh time. It needs Windows, Windows PowerShell 5.1+, desktop Excel with Power Query, and the `Microsoft.Mashup.OleDb.1` provider. It does not import or execute VBA.
 - **Manual Excel run** is the only check for VBA behaviour end to end: importing the modules, running `modWorkpaperFormat` and `modReconCompare` against real worksheets, and confirming Mac behaviour (the recon module's platform error message). Nothing automated executes the macros.
 
 ## Principles
@@ -66,7 +73,7 @@ Three layers check this repository, and each covers different ground:
 
 ## Roadmap
 
-Aged receivables/payables parser, MYOB export parsers, Office Scripts ports of the VBA modules, auto-generated function catalogue.
+See [the close-input contract roadmap](docs/close-input-contract-roadmap.md) for the evidence required before any aged receivables/payables or MYOB parser is added. Other planned work: Office Scripts ports of the VBA modules and an auto-generated function catalogue.
 
 ## Related
 
