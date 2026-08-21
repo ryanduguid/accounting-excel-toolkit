@@ -88,3 +88,11 @@ Utility code, MIT-licensed, no warranty. Nothing here is tax or financial advice
 ## Author
 
 Ryan Duguid, accountant in Newcastle NSW, provisional member of Chartered Accountants ANZ.
+
+## CI coverage
+
+`verify.yml` runs static Python guards. `tools/native_excel_acceptance.ps1`
+(72 checks) and VBA end-to-end remain local Windows work. Power Query
+behaviour is not executed on GitHub-hosted runners. Tagged releases call
+`ryanduguid/release-policy` `release-archive.yml` pinned by full commit SHA.
+
