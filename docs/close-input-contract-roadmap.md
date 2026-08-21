@@ -9,6 +9,7 @@ accounting, legal or exposure decision.
 
 - `PaydaySuper.Report`: Fixed 18-column CSV producer contract emitted by `payday-super-checker`.
 - `Xero.AgedReceivables`: Observed Xero aged receivables summary CSV export contract. Reconciles bucket columns against row and summary totals and coerces contact keys to text.
+- `Xero.AgedPayables`: Observed Xero aged payables summary CSV export contract. Reconciles bucket columns against row and summary totals and coerces supplier keys to text.
 
 ## Next evidence gate: observed Xero aged receivables/payables
 
