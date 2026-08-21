@@ -1530,6 +1530,61 @@ class XeroAgedReceivablesSafetyTests(unittest.TestCase):
             self.assertEqual(col_sum, expected_total, f"Column {headers[col_idx]} sum does not match Total row")
 
 
+class XeroAgedPayablesSafetyTests(unittest.TestCase):
+    def source(self):
+        return (ROOT / "powerquery" / "Xero.AgedPayables.pq").read_text(encoding="utf-8")
+
+    def test_aged_payables_pq_source_guards(self):
+        source = self.source()
+        self.assertIn("Xero.AgedPayables", source)
+        self.assertIn("Lines.FromBinary", source)
+        self.assertIn("Csv.Document", source)
+        self.assertIn("Header row not found", source)
+        self.assertIn("Table.PromoteHeaders", source)
+
+    def test_aged_payables_sample_fixture_is_reconciled(self):
+        fixture_path = ROOT / "samples" / "sample-xero-aged-payables.csv"
+        self.assertTrue(fixture_path.is_file())
+        with fixture_path.open(encoding="utf-8-sig") as f:
+            rows = [line.strip().split(",") for line in f if line.strip()]
+
+        header_idx = -1
+        for idx, row in enumerate(rows):
+            if row[0] in ("Contact", "Supplier", "Vendor"):
+                header_idx = idx
+                break
+        self.assertGreaterEqual(header_idx, 0, "Header row not found in sample fixture")
+
+        headers = rows[header_idx]
+        self.assertEqual(headers[0], "Contact")
+        self.assertEqual(headers[-1], "Total")
+
+        data_rows = rows[header_idx + 1 :]
+        total_row = None
+        supplier_rows = []
+        for r in data_rows:
+            if r[0].lower() == "total":
+                total_row = r
+            else:
+                supplier_rows.append(r)
+
+        self.assertIsNotNone(total_row, "Summary Total row required in sample fixture")
+        self.assertGreaterEqual(len(supplier_rows), 2)
+
+        # Check row-level bucket summation
+        for r in supplier_rows:
+            buckets = [Decimal(v) for v in r[1:-1]]
+            row_total = Decimal(r[-1])
+            self.assertEqual(sum(buckets), row_total, f"Row {r[0]} buckets do not equal row total")
+
+        # Check column totals match summary Total row
+        num_cols = len(headers)
+        for col_idx in range(1, num_cols):
+            col_sum = sum(Decimal(r[col_idx]) for r in supplier_rows)
+            expected_total = Decimal(total_row[col_idx])
+            self.assertEqual(col_sum, expected_total, f"Column {headers[col_idx]} sum does not match Total row")
+
+
 if __name__ == "__main__":
     unittest.main()
 
