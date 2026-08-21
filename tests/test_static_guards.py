@@ -24,6 +24,37 @@ ROOT = Path(__file__).resolve().parents[1]
 
 COMBINED_FIXTURE = ROOT / "samples" / "sample-xero-trial-balance.csv"
 SEPARATE_FIXTURE = ROOT / "samples" / "sample-xero-trial-balance-columns.csv"
+PAYDAY_SUPER_FIXTURE = ROOT / "samples" / "sample-payday-super-report.csv"
+
+PAYDAY_SUPER_HEADERS = (
+    "row",
+    "employee_id",
+    "qe_day",
+    "pathway",
+    "due_date",
+    "verdict",
+    "days_late",
+    "lateness_measured_to",
+    "sg_amount",
+    "final_shortfall",
+    "notional_earnings",
+    "uplift_best_case",
+    "uplift_worst_case",
+    "sgc_estimate_low",
+    "sgc_estimate_high",
+    "caveats",
+    "notes",
+    "unassessable_between",
+)
+PAYDAY_SUPER_AMOUNT_HEADERS = (
+    "sg_amount",
+    "final_shortfall",
+    "notional_earnings",
+    "uplift_best_case",
+    "uplift_worst_case",
+    "sgc_estimate_low",
+    "sgc_estimate_high",
+)
 
 # Text.Select(c, {"0".."9", "A".."Z", "a".."z"}) in the M: ASCII only, so
 # str.isalnum() (which accepts every Unicode letter and digit) will not do.
@@ -37,6 +68,72 @@ class TrialBalanceError(Exception):
     """What the ported parser raises where the M raises. A distinct type, so
     a test can assert the refusal without assertRaises(AssertionError)
     swallowing a genuine assertion failure from the same block."""
+
+
+class PaydaySuperReportError(Exception):
+    """Contract refusal corresponding to the Payday Super M function."""
+
+
+def _parse_payday_super_report(path):
+    """Small specification port for the external producer CSV contract.
+
+    CI has no M engine.  This tests the prescribed input boundary, while the
+    source assertions below pin the checks that the Power Query adapter must
+    retain.  It intentionally does not calculate an exposure or alter a
+    producer verdict.
+    """
+    try:
+        with path.open(newline="", encoding="utf-8-sig") as stream:
+            rows = list(csv.reader(stream, strict=True))
+    except csv.Error as exc:
+        raise PaydaySuperReportError("unterminated quoted field or malformed CSV") from exc
+    if not rows:
+        raise PaydaySuperReportError("no header row")
+
+    headers = rows[0]
+    if len(headers) != len(set(headers)):
+        raise PaydaySuperReportError("duplicate header")
+    missing = [header for header in PAYDAY_SUPER_HEADERS if header not in headers]
+    if missing:
+        raise PaydaySuperReportError("missing header: " + ", ".join(missing))
+
+    records = []
+    provenance = None
+    for index, values in enumerate(rows[1:], start=2):
+        if len(values) != len(headers):
+            raise PaydaySuperReportError(f"malformed row {index}")
+        record = dict(zip(headers, values))
+        is_terminal_note = record["employee_id"] == "NOTE" and all(
+            not record[field]
+            for field in PAYDAY_SUPER_HEADERS
+            if field not in {"employee_id", "notes"}
+        )
+        if is_terminal_note:
+            if index != len(rows) or provenance is not None:
+                raise PaydaySuperReportError("NOTE row must be terminal and unique")
+            provenance = record["notes"]
+            continue
+        if not record["employee_id"] or not record["row"]:
+            raise PaydaySuperReportError(f"malformed row {index}")
+        typed = dict(record)
+        for header in PAYDAY_SUPER_AMOUNT_HEADERS:
+            raw = record[header]
+            if raw == "":
+                typed[header] = None
+                continue
+            try:
+                typed[header] = Decimal(raw)
+            except Exception as exc:
+                raise PaydaySuperReportError(
+                    f"invalid amount {header} on row {index}"
+                ) from exc
+        records.append(typed)
+
+    if not provenance:
+        raise PaydaySuperReportError("no terminal NOTE provenance")
+    if not records:
+        raise PaydaySuperReportError("no contribution rows")
+    return records, provenance
 
 
 class NativeExcelAcceptanceSafetyTests(unittest.TestCase):
@@ -59,7 +156,7 @@ class NativeExcelAcceptanceSafetyTests(unittest.TestCase):
         # itself empty when a -File parameter default is evaluated.
         self.assertRegex(
             parameter_block,
-            r"(?m)^\s*\[string\]\$RepositoryRoot\s*$",
+            r"(?m)^\s*\[string\]\$RepositoryRoot,?\s*$",
         )
         self.assertNotRegex(parameter_block, r"\$RepositoryRoot\s*=")
         self.assertNotIn("$PSScriptRoot", parameter_block)
@@ -105,10 +202,126 @@ class NativeExcelAcceptanceSafetyTests(unittest.TestCase):
         self.assertIn("[guid]::NewGuid().ToString('D')", source)
         self.assertIn("[IO.Path]::GetTempPath()", source)
         temporary_prefix = "sir-alexander-fitzgerald-native-"
-        self.assertEqual(source.count(temporary_prefix), 2)
+        self.assertEqual(source.count(temporary_prefix), 3)
         self.assertNotIn("accounting-excel-toolkit-native-", source)
-        self.assertIn("if ($rowCount -ne 46)", source)
+        self.assertIn("samples\\sample-payday-super-report.csv", source)
+        self.assertIn("PaydaySuper_Report", source)
+        self.assertIn("ZZ_CoreChecks", source)
+        self.assertIn("ZZ_PaydayBaseChecks", source)
+        self.assertIn("ZZ_PaydayExtraCheck", source)
+        self.assertIn("ZZ_PaydayEmployeeNoteCheck", source)
+        self.assertIn("ZZ_PaydayNoProvenanceMaterialisationCheck", source)
+        self.assertIn("ZZ_PaydayDuplicateProvenanceCheck", source)
+        self.assertIn("ZZ_PaydayNonTerminalProvenanceCheck", source)
+        self.assertIn("ZZ_PaydayEmptyProvenanceCheck", source)
+        self.assertIn("ZZ_PaydayShortRowCheck", source)
+        self.assertIn("ZZ_PaydayNoContributionsCheck", source)
+        self.assertIn("ZZ_PaydayUnterminatedQuoteCheck", source)
+        self.assertIn("ZZ_PaydayUnterminatedExtraQuoteCheck", source)
+        self.assertIn("ZZ_PaydayQuotedMultilineCheck", source)
+        self.assertIn("ZZ_PaydayScale500Check", source)
+        self.assertIn("ZZ_PaydayScale5000Check", source)
+        self.assertIn("ZZ_PaydayScale10000Check", source)
+        self.assertIn("$paydayCheckQueries", source)
+        self.assertIn("ExpectedRows = 7", source)
+        self.assertIn("$querySpecifications = @(\n        if ($CheckSet -eq 'Core')", source)
+        self.assertIn(
+            "List.Sum(PaydaySuper_Report($mPaydayBadAmount)[sg_amount])",
+            source,
+        )
+        self.assertIn(
+            "Value.Metadata(PaydaySuper_Report($mPaydayNoProvenance))"
+            "[PaydaySuperProvenance]",
+            source,
+        )
+        self.assertIn(
+            "Table.RowCount(PaydaySuper_Report($mPaydayNoProvenance))",
+            source,
+        )
+        self.assertIn(
+            "Table.RowCount(PaydaySuper_Report($mPaydayShortRow))",
+            source,
+        )
+        self.assertIn("attempt[Error][Detail]", source)
+        self.assertIn('Text.Contains(detail, "CSV record 3")', source)
+        self.assertIn(
+            "$expectedChildCount = if ($childSet -eq 'Core') { 46 } else { 26 }",
+            source,
+        )
+        self.assertIn("if ($childRows.Count -ne $expectedChildCount)", source)
+        self.assertIn("if ($rowCount -ne 72)", source)
+        self.assertIn("foreach ($scaleRows in @(500, 5000, 10000))", source)
+        self.assertIn("[Diagnostics.Stopwatch]::StartNew()", source)
+        self.assertIn("ScaleRows = $scaleRows", source)
+        self.assertIn("$payload.Timings", source)
+        self.assertIn("[ValidateSet('All', 'Core', 'Payday')]", source)
+        self.assertIn("-CheckSet $childSet", source)
+        self.assertIn("-ResultPath $resultFile", source)
+        self.assertIn("ConvertFrom-Json -ErrorAction Stop", source)
+        self.assertIn("native acceptance child exited", source)
+        self.assertIn("returned a malformed check row", source)
+        self.assertIn("Core and Payday children ran against different Excel", source)
         self.assertNotIn("WScript.Shell", source)
+
+    def test_native_unterminated_quote_checks_pin_the_adapter_error(self):
+        source = self.source()
+
+        self.assertEqual(
+            source.count("Source = New-PaydayMalformedRowErrorCheckM"),
+            2,
+        )
+        self.assertEqual(
+            source.count("-DetailContains 'unterminated quoted field'"),
+            2,
+        )
+        self.assertIn("$mExpected = ConvertTo-MText (", source)
+        self.assertIn(
+            "{{$mName, $mExpected, actualText, actual = true}}",
+            source,
+        )
+        self.assertNotIn(
+            '"PaydaySuper.Report / Malformed report row / $mDetailContains"',
+            source,
+        )
+        for required in (
+            'Record.FieldOrDefault(errorRecord, "Reason", "")',
+            'Record.FieldOrDefault(errorRecord, "Message", "")',
+            'Record.FieldOrDefault(errorRecord, "Detail", "")',
+            'and reason = "PaydaySuper.Report"',
+            'and message = "Malformed report row"',
+            "and Text.Contains(detail, $mDetailContains)",
+        ):
+            with self.subTest(required=required):
+                self.assertIn(required, source)
+
+    @unittest.skipUnless(
+        sys.platform == "win32" and shutil.which("powershell.exe"),
+        "requires Windows PowerShell 5.1",
+    )
+    def test_native_child_modes_require_a_private_result_path_before_excel(self):
+        script = ROOT / "tools" / "native_excel_acceptance.ps1"
+        result = subprocess.run(
+            [
+                shutil.which("powershell.exe"),
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(script),
+                "-RepositoryRoot",
+                str(ROOT),
+                "-CheckSet",
+                "Core",
+            ],
+            capture_output=True,
+            text=True,
+            errors="replace",
+            check=False,
+        )
+        output = result.stdout + result.stderr
+        self.assertEqual(result.returncode, 1, output)
+        self.assertIn("require the private ResultPath argument", output)
+        self.assertNotIn("Desktop Microsoft Excel could not be started", output)
 
     @unittest.skipUnless(
         sys.platform == "win32" and shutil.which("powershell.exe"),
@@ -851,6 +1064,224 @@ class TrialBalanceFixtureTests(unittest.TestCase):
         self.assertIn("CONVERTED to Australian Eastern Standard Time (+10:00)", source)
         self.assertIn("Residual:", source)
         self.assertIn("Adelaide/Darwin", source)
+
+
+class PaydaySuperReportContractTests(unittest.TestCase):
+    def test_fabricated_producer_fixture_preserves_the_18_field_contract(self):
+        records, provenance = _parse_payday_super_report(PAYDAY_SUPER_FIXTURE)
+
+        self.assertEqual(len(records), 2)
+        self.assertEqual(records[0]["employee_id"], "000123")
+        self.assertEqual(records[1]["employee_id"], "'=FORMULA")
+        self.assertIsInstance(records[0]["employee_id"], str)
+        self.assertIsInstance(records[1]["employee_id"], str)
+        self.assertEqual(records[0]["verdict"], "LATE")
+        self.assertEqual(records[1]["verdict"], "UNKNOWN")
+        self.assertEqual(records[0]["notes"], 'Fabricated, "late" contribution')
+        self.assertEqual(records[1]["unassessable_between"], "LATE or ON_TIME")
+        self.assertIn("calendar coverage", records[1]["caveats"])
+        self.assertIn("payday-super-checker", provenance)
+        self.assertNotIn("NOTE", [record["employee_id"] for record in records])
+
+    def test_literal_note_employee_identifier_remains_a_contribution(self):
+        with PAYDAY_SUPER_FIXTURE.open(newline="", encoding="utf-8-sig") as stream:
+            source_rows = list(csv.reader(stream))
+        changed = [list(row) for row in source_rows]
+        employee_id = source_rows[0].index("employee_id")
+        changed[1][employee_id] = "NOTE"
+
+        with tempfile.TemporaryDirectory() as temporary_name:
+            report = Path(temporary_name) / "literal-note-employee.csv"
+            with report.open("w", newline="", encoding="utf-8-sig") as stream:
+                csv.writer(stream).writerows(changed)
+
+            records, provenance = _parse_payday_super_report(report)
+
+        self.assertEqual(len(records), 2)
+        self.assertEqual(records[0]["employee_id"], "NOTE")
+        self.assertIn("payday-super-checker", provenance)
+
+    def test_amounts_are_typed_or_null_without_recalculation(self):
+        records, _ = _parse_payday_super_report(PAYDAY_SUPER_FIXTURE)
+        first, second = records
+
+        self.assertEqual(first["sg_amount"], Decimal("780.00"))
+        self.assertEqual(first["final_shortfall"], Decimal("780.00"))
+        self.assertEqual(first["sgc_estimate_low"], Decimal("833.34"))
+        self.assertIsNone(second["final_shortfall"])
+        self.assertIsNone(second["uplift_best_case"])
+        self.assertIsNone(second["sgc_estimate_high"])
+
+    def test_named_headers_tolerate_extras_but_reject_missing_or_duplicate_names(self):
+        with PAYDAY_SUPER_FIXTURE.open(newline="", encoding="utf-8-sig") as stream:
+            source_rows = list(csv.reader(stream))
+        with tempfile.TemporaryDirectory() as temporary_name:
+            temporary = Path(temporary_name)
+            extra = temporary / "extra.csv"
+            with extra.open("w", newline="", encoding="utf-8-sig") as stream:
+                writer = csv.writer(stream)
+                writer.writerow(source_rows[0] + ["future_column"])
+                for row in source_rows[1:]:
+                    writer.writerow(row + ["ignored"])
+            self.assertEqual(len(_parse_payday_super_report(extra)[0]), 2)
+
+            missing = temporary / "missing.csv"
+            with missing.open("w", newline="", encoding="utf-8-sig") as stream:
+                writer = csv.writer(stream)
+                writer.writerow([h for h in source_rows[0] if h != "verdict"])
+                for row in source_rows[1:]:
+                    writer.writerow(
+                        [value for header, value in zip(source_rows[0], row) if header != "verdict"]
+                    )
+            with self.assertRaisesRegex(PaydaySuperReportError, "missing header: verdict"):
+                _parse_payday_super_report(missing)
+
+            duplicate = temporary / "duplicate.csv"
+            with duplicate.open("w", newline="", encoding="utf-8-sig") as stream:
+                writer = csv.writer(stream)
+                writer.writerow(source_rows[0] + ["verdict"])
+                for row in source_rows[1:]:
+                    writer.writerow(row + [row[5]])
+            with self.assertRaisesRegex(PaydaySuperReportError, "duplicate header"):
+                _parse_payday_super_report(duplicate)
+
+    def test_malformed_rows_bad_amounts_and_missing_provenance_refuse(self):
+        with PAYDAY_SUPER_FIXTURE.open(newline="", encoding="utf-8-sig") as stream:
+            source_rows = list(csv.reader(stream))
+        with tempfile.TemporaryDirectory() as temporary_name:
+            temporary = Path(temporary_name)
+
+            malformed = temporary / "malformed.csv"
+            with malformed.open("w", newline="", encoding="utf-8-sig") as stream:
+                writer = csv.writer(stream)
+                writer.writerows(source_rows[:-1])
+                writer.writerow(source_rows[-1][:-1])
+            with self.assertRaisesRegex(PaydaySuperReportError, "malformed row"):
+                _parse_payday_super_report(malformed)
+
+            bad_amount = temporary / "bad-amount.csv"
+            changed = [list(row) for row in source_rows]
+            changed[1][source_rows[0].index("sg_amount")] = "TBC"
+            with bad_amount.open("w", newline="", encoding="utf-8-sig") as stream:
+                csv.writer(stream).writerows(changed)
+            with self.assertRaisesRegex(PaydaySuperReportError, "invalid amount sg_amount"):
+                _parse_payday_super_report(bad_amount)
+
+            no_note = temporary / "no-note.csv"
+            with no_note.open("w", newline="", encoding="utf-8-sig") as stream:
+                csv.writer(stream).writerows(source_rows[:-1])
+            with self.assertRaisesRegex(PaydaySuperReportError, "no terminal NOTE provenance"):
+                _parse_payday_super_report(no_note)
+
+    def test_zero_contributions_and_unterminated_quotes_refuse(self):
+        with PAYDAY_SUPER_FIXTURE.open(newline="", encoding="utf-8-sig") as stream:
+            source_rows = list(csv.reader(stream))
+        with tempfile.TemporaryDirectory() as temporary_name:
+            temporary = Path(temporary_name)
+
+            no_contributions = temporary / "no-contributions.csv"
+            with no_contributions.open("w", newline="", encoding="utf-8-sig") as stream:
+                csv.writer(stream).writerows([source_rows[0], source_rows[-1]])
+            with self.assertRaisesRegex(PaydaySuperReportError, "no contribution rows"):
+                _parse_payday_super_report(no_contributions)
+
+            unterminated_contract = temporary / "unterminated-contract.csv"
+            unterminated_contract.write_text(
+                ",".join(source_rows[0]) + "\n" + '1,"unterminated',
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(PaydaySuperReportError, "unterminated quoted field"):
+                _parse_payday_super_report(unterminated_contract)
+
+            unterminated_extra = temporary / "unterminated-extra.csv"
+            rows_with_extra = [source_rows[0] + ["future_column"]]
+            rows_with_extra.extend(row + ["ignored"] for row in source_rows[1:-1])
+            with unterminated_extra.open("w", newline="", encoding="utf-8") as stream:
+                csv.writer(stream).writerows(rows_with_extra)
+                stream.write(",".join(source_rows[-1]) + ',"unterminated')
+            with self.assertRaisesRegex(PaydaySuperReportError, "unterminated quoted field"):
+                _parse_payday_super_report(unterminated_extra)
+
+    def test_quoted_multiline_field_remains_one_record(self):
+        with PAYDAY_SUPER_FIXTURE.open(newline="", encoding="utf-8-sig") as stream:
+            source_rows = list(csv.reader(stream, strict=True))
+        changed = [list(row) for row in source_rows]
+        notes = source_rows[0].index("notes")
+        changed[1][notes] = "Fabricated multiline\ncontribution"
+
+        with tempfile.TemporaryDirectory() as temporary_name:
+            report = Path(temporary_name) / "quoted-multiline.csv"
+            with report.open("w", newline="", encoding="utf-8-sig") as stream:
+                csv.writer(stream).writerows(changed)
+            records, provenance = _parse_payday_super_report(report)
+
+        self.assertEqual(len(records), 2)
+        self.assertEqual(records[0]["notes"], "Fabricated multiline\ncontribution")
+        self.assertIn("payday-super-checker", provenance)
+
+    def test_power_query_pins_contract_validation_and_metadata_provenance(self):
+        source = (ROOT / "powerquery" / "PaydaySuper.Report.pq").read_text(encoding="utf-8")
+        self.assertRegex(source, r"(?m)^\s*PaydaySuperReport = \(FilePath as text\) as table =>")
+        self.assertRegex(source, r"(?m)^\s*PaydaySuperReport$")
+        for header in PAYDAY_SUPER_HEADERS:
+            with self.subTest(header=header):
+                self.assertIn('"' + header + '"', source)
+        for required in (
+            r'Error\.Record\(\s*"PaydaySuper\.Report",\s*"Missing required header"',
+            r'Error\.Record\(\s*"PaydaySuper\.Report",\s*"Duplicate header"',
+            r'Error\.Record\(\s*"PaydaySuper\.Report",\s*"Malformed report row"',
+            r'Error\.Record\(\s*"PaydaySuper\.Report",\s*"Invalid amount"',
+            r'Error\.Record\(\s*"PaydaySuper\.Report",\s*"Missing terminal NOTE provenance"',
+            r'Value\.ReplaceMetadata\(',
+            r'PaydaySuperProvenance = Provenance',
+            r'fileBinary\s*=\s*Binary\.Buffer\(File\.Contents\(FilePath\)\)',
+            r'Table\.SelectColumns\(HeadersChecked, RequiredHeaders, MissingField\.Error\)',
+            r'Table\.Buffer\(AmountTyped\)',
+            r'CharacterCount\s*=\s*Text\.Length\(CsvText\)',
+            r'Lines\.FromText\(CsvText, QuoteStyle\.Csv, false\)',
+            r'MeasureRecord\s*=\s*\(recordText as text, recordNumber as number\)',
+            r'quoteCount\s*=\s*Text\.Length\(recordText\)',
+            r'parsedAttempt\s*=\s*if Number\.Mod\(quoteCount, 2\) <> 0 then',
+            r'else try Csv\.Document\(\s*Text\.ToBinary\(recordText, TextEncoding\.Utf8\)',
+            r'FirstMalformedRecord\s*=\s*Table\.FirstN\(',
+            r'RecordWidthsChecked',
+            r'Text\.From\(malformed\[RecordNumber\]\)',
+            r'IsTerminalNoteCandidate',
+            r'DataRowCount\s*=\s*Table\.RowCount\(DataRows\)',
+            r'Error\.Record\(\s*"PaydaySuper\.Report",\s*"Missing contribution rows"',
+            r'ValidatedResult\s*=\s*if\s*Text\.Length\(ProvenanceChecked\) >= 0 '
+            r'and ContributionRowCount > 0\s*then Result',
+        ):
+            with self.subTest(required=required):
+                self.assertRegex(source, required)
+        self.assertNotIn("List.Count(CsvCharacters)", source)
+        self.assertNotIn("Widths = {}", source)
+        self.assertNotIn('{"Widths", each _ &', source)
+        self.assertNotIn("ScanCharacterRange", source)
+        self.assertNotIn("CheckRecordWidth", source)
+        self.assertNotIn("quoteChecked =", source)
+
+    def test_documentation_states_the_contract_and_future_parser_boundary(self):
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        roadmap = (ROOT / "docs" / "close-input-contract-roadmap.md").read_text(
+            encoding="utf-8"
+        )
+        for required in (
+            "fabricated Payday Super report",
+            "`employee_id = NOTE`",
+            "`PaydaySuperProvenance`",
+            "raw `verdict`",
+            "literal employee identifier is `NOTE` remains data",
+            "present empty trailing field is valid",
+            "report with no contribution rows",
+            "ignored extra producer column",
+            "quoted multiline field",
+        ):
+            with self.subTest(required=required):
+                self.assertIn(required, readme)
+        self.assertIn("observed Xero aged receivables/payables", roadmap)
+        self.assertIn("MYOB-specific parsers", roadmap)
+        self.assertIn("Do not infer a schema", roadmap)
 
 
 class ReconResultSafetyTests(unittest.TestCase):
