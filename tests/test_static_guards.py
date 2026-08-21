@@ -104,6 +104,9 @@ class NativeExcelAcceptanceSafetyTests(unittest.TestCase):
         self.assertIn("samples\\sample-xero-trial-balance-columns.csv", source)
         self.assertIn("[guid]::NewGuid().ToString('D')", source)
         self.assertIn("[IO.Path]::GetTempPath()", source)
+        temporary_prefix = "sir-alexander-fitzgerald-native-"
+        self.assertEqual(source.count(temporary_prefix), 2)
+        self.assertNotIn("accounting-excel-toolkit-native-", source)
         self.assertIn("if ($rowCount -ne 46)", source)
         self.assertNotIn("WScript.Shell", source)
 
@@ -153,7 +156,7 @@ class NativeExcelAcceptanceSafetyTests(unittest.TestCase):
             )
 
         with tempfile.TemporaryDirectory(
-            prefix="accounting excel toolkit "
+            prefix="sir alexander fitzgerald "
         ) as temporary_name:
             temporary_root = Path(temporary_name)
 

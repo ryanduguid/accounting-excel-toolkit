@@ -16,14 +16,14 @@ only. Generated fixtures and the workbook live in a GUID-named directory under
 the operating system's temporary directory and are removed in finally.
 
 .PARAMETER RepositoryRoot
-Path to the accounting-excel-toolkit checkout to test. By default this is the
+Path to the repository checkout to test. By default this is the
 repository containing this script.
 
 .EXAMPLE
 powershell -NoProfile -File .\tools\native_excel_acceptance.ps1
 
 .EXAMPLE
-powershell -NoProfile -File .\tools\native_excel_acceptance.ps1 -RepositoryRoot C:\src\accounting-excel-toolkit
+powershell -NoProfile -File .\tools\native_excel_acceptance.ps1 -RepositoryRoot C:\src\SirAlexanderFitzgerald
 #>
 [CmdletBinding()]
 param(
@@ -80,7 +80,7 @@ function Test-SafeTemporaryDirectory {
         $expectedParent,
         [StringComparison]::OrdinalIgnoreCase
     ) -and $leaf -match (
-        '^accounting-excel-toolkit-native-' +
+        '^sir-alexander-fitzgerald-native-' +
         '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
     )
 }
@@ -138,7 +138,7 @@ if ($powerQueryFiles.Count -eq 0) {
 
 $systemTemporaryRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
 $temporaryDirectory = Join-Path $systemTemporaryRoot (
-    'accounting-excel-toolkit-native-' + [guid]::NewGuid().ToString('D')
+    'sir-alexander-fitzgerald-native-' + [guid]::NewGuid().ToString('D')
 )
 $temporaryDirectory = [IO.Path]::GetFullPath($temporaryDirectory)
 if (-not (Test-SafeTemporaryDirectory $temporaryDirectory $systemTemporaryRoot)) {
