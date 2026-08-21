@@ -37,10 +37,19 @@ powershell -NoProfile -File tools/native_excel_acceptance.ps1
 
 Use `-RepositoryRoot D:\src\SirAlexanderFitzgerald` to test a different
 checkout. The runner requires Excel's Power Query engine and the
-`Microsoft.Mashup.OleDb.1` provider. It exercises exactly 46 real-engine cases:
-both fabricated Xero layouts, period and YTD selection, malformed exports,
-lazy evaluation, AU financial-year boundaries, ABN validation and header
-promotion.
+`Microsoft.Mashup.OleDb.1` provider. It exercises exactly 72 real-engine cases:
+both fabricated Xero layouts, the fabricated Payday Super producer contract,
+period and YTD selection, malformed exports, lazy evaluation, AU financial-year
+boundaries, ABN validation and header promotion.
+
+The default `All` mode runs the 46 core checks and 26 Payday Super checks in
+fresh child PowerShell and Excel processes. Within the Payday child, each of
+20 queries reads only one of 19 fabricated files. This keeps Excel's
+cross-source privacy/firewall composition state from masking adapter behaviour
+while preserving the exact 72-check result contract. One check preserves a
+quoted multiline field; three others materialise fabricated reports containing
+500, 5,000 and 10,000 contribution
+rows and print their measured refresh times.
 
 The runner does not write to repository sources or samples. It creates its
 workbook and adverse fixtures in a GUID-named system temporary directory,
