@@ -39,7 +39,7 @@ GUID-named temporary directory; direct callers should not set it.
 powershell -NoProfile -File .\tools\native_excel_acceptance.ps1
 
 .EXAMPLE
-powershell -NoProfile -File .\tools\native_excel_acceptance.ps1 -RepositoryRoot C:\src\SirAlexanderFitzgerald
+powershell -NoProfile -File .\tools\native_excel_acceptance.ps1 -RepositoryRoot C:\src\accounting-excel-toolkit
 #>
 [CmdletBinding()]
 param(
