@@ -35,7 +35,7 @@ run every checked-in Power Query function in Excel itself:
 powershell -NoProfile -File tools/native_excel_acceptance.ps1
 ```
 
-Use `-RepositoryRoot D:\src\SirAlexanderFitzgerald` to test a different
+Use `-RepositoryRoot D:\src\accounting-excel-toolkit` to test a different
 checkout. The runner requires Excel's Power Query engine and the
 `Microsoft.Mashup.OleDb.1` provider. It exercises exactly 72 real-engine cases:
 both fabricated Xero layouts, the fabricated Payday Super producer contract,
