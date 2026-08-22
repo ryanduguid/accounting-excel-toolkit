@@ -1,6 +1,6 @@
 # Sir Alexander Fitzgerald
 
-[![Verify](https://github.com/ryanduguid/accounting-excel-toolkit/actions/workflows/verify.yml/badge.svg)](https://github.com/ryanduguid/accounting-excel-toolkit/actions/workflows/verify.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Verify](https://github.com/ryanduguid/accounting-excel-toolkit/actions/workflows/verify.yml/badge.svg)](https://github.com/ryanduguid/accounting-excel-toolkit/actions/workflows/verify.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-4F485E.svg?labelColor=04001F)](LICENSE)
 
 Power Query (M) functions and VBA modules for accountants working with Australian ledger exports: a Xero trial balance parser, an AU financial-year helper, ABN validation, workpaper formatting, keyed reconciliations.
 
@@ -95,4 +95,3 @@ Ryan Duguid, accountant in Newcastle NSW, provisional member of Chartered Accoun
 (72 checks) and VBA end-to-end remain local Windows work. Power Query
 behaviour is not executed on GitHub-hosted runners. Tagged releases call
 `ryanduguid/release-policy` `release-archive.yml` pinned by full commit SHA.
-
