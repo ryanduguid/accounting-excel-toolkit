@@ -490,7 +490,7 @@ try {
     # A period-movement-only export: no YTD pair at all.
     @'
 Trial Balance
-Sample Trading Pty Ltd
+Yanille Trading Pty Ltd
 For the month ended 30 June 2026
 
 Account,Account Type,Debit,Credit
@@ -513,7 +513,7 @@ Acme Pty Ltd,INV-001,30/06/2026,1100.00
     # An entity name beginning with "Account" must not be mistaken for a header.
     $decoyEntityContents = (
         Get-Content -LiteralPath $combinedFixture -Raw -Encoding UTF8
-    ) -replace 'Sample Trading Pty Ltd', 'Accountable Plumbing Pty Ltd'
+    ) -replace 'Yanille Trading Pty Ltd', 'Accountable Plumbing Pty Ltd'
     $decoyEntityContents |
         Set-Content -LiteralPath $decoyEntityFixture -Encoding UTF8
 
@@ -741,7 +741,7 @@ let
         chk("PromoteHeaderAt: promotes the located header row", "Account",
             List.First(Table.ColumnNames(Fx_PromoteHeaderAt(
                 #table({"Column1", "Column2"},
-                    {{"Trial Balance", null}, {"Sample Trading Pty Ltd", null},
+                    {{"Trial Balance", null}, {"Yanille Trading Pty Ltd", null},
                      {"Account", "Debit"}, {"Sales (200)", "6200.00"}}),
                 "Account")))),
         chk("PromoteHeaderAt: caller value is trimmed before matching", "Account",
