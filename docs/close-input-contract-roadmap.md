@@ -33,6 +33,13 @@ contract: do not reuse Xero assumptions or label an unobserved layout as MYOB
 support. Use the same fabricated-fixture, named-header, hostile-input and
 native-engine acceptance requirements as the Xero gate.
 
+The first MYOB contract is now scoped: `MYOB.AgedReceivables` against MYOB
+Business (Pro), Excel report export. Product decision, export-mode constraints,
+contract skeleton v0.1 and the observation checklist live in
+[myob-business-aged-receivables-discovery.md](myob-business-aged-receivables-discovery.md).
+No parser exists; the gate stays closed until a real observation fills the
+"to observe" entries.
+
 ## Boundaries that remain in force
 
 - Keep actual client exports outside the repository; commit fabricated samples
