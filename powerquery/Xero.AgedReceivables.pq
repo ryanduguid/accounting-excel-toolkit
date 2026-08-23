@@ -10,7 +10,11 @@
 //   1. Contact identifier is forced to text so leading zeros and punctuation survive.
 //   2. Ageing buckets and Total columns are parsed as numbers (Currency/type number).
 //   3. The trailing summary "Total" row is excluded from the returned customer rows.
-//   4. Row-level bucket sums are verified against the exported Total within a 0.005 tolerance.
+//   4. Bucket and Total columns are returned as Xero exported them. This query
+//      does not tie row buckets to the exported Total, so check it yourself:
+//      Number.Abs(List.Sum(row buckets) - row[Total]) < 0.005, the same
+//      tolerance Xero.TrialBalance documents, because the sums are IEEE
+//      doubles and an exact = can fail on a genuinely tying row.
 //   5. Negative balances (credit notes and prepayments) are preserved as signed numbers.
 //
 // Usage: Xero.AgedReceivables("C:\exports\aged-receivables-2026-06-30.csv")
