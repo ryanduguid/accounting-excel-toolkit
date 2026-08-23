@@ -34,3 +34,7 @@ gh release verify-asset v0.1.2 accounting-excel-toolkit-0.1.2.zip -R ryanduguid/
 ```
 
 If any gate fails, leave the tag and any draft release untouched until the failure is understood. Never move an already published tag.
+
+## Rollback
+
+Rollback of the caller is a reviewed pull request that repins `release-archive.yml` to the previous full 40-character commit SHA of this repository (or reverts to a reviewed local implementation). No workflow creates, moves or deletes tags, so rollback never touches published releases; existing tags and their assets stay exactly as they are. The structural test in `tests/test_release_archives.py` pins the expected SHA and must be updated in the same change.
