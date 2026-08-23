@@ -44,3 +44,11 @@ desktop.ini
 
 # Workflow review scratch, not repo content.
 .superpowers/
+
+# Credentials must never be committed.
+.env
+.env.*
+!.env.example
+*.token
+*.tokens
+*.pem
