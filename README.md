@@ -1,5 +1,19 @@
 # accounting-excel-toolkit
 
+```
++----------------------------------------------------------------------+
+|                       accounting-excel-toolkit                       |
++----------------------------------------------------------------------+
+|       Power Query and VBA utilities for Australian ledger work       |
++----------------------------------+-----------------------------------+
+| DR  what it gives you            | CR  what it needs                 |
++----------------------------------+-----------------------------------+
+| Xero TB parser (Power Query)     | a Xero trial balance CSV          |
+| ABN checksum validation          | Excel for Power Query or VBA      |
+| workpaper formatting VBA         | -                                 |
++----------------------------------+-----------------------------------+
+```
+
 [![Verify](https://github.com/ryanduguid/accounting-excel-toolkit/actions/workflows/verify.yml/badge.svg)](https://github.com/ryanduguid/accounting-excel-toolkit/actions/workflows/verify.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-4F485E.svg?labelColor=04001F)](LICENSE)
 
 Power Query (M) functions and VBA modules for accountants working with Australian ledger exports: a Xero trial balance parser, an AU financial-year helper, ABN validation, workpaper formatting, keyed reconciliations.
