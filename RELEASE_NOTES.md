@@ -1,6 +1,6 @@
-# v0.1.4
+# v0.1.5
 
-The `v0.1.1` and `v0.1.3` tags are retained as unreleased failed-preflight tags. Both workflows stopped before any build or publication step (v0.1.3's release.yml pinned release-policy to a SHA orphaned by a history rewrite), so neither has a release or assets, and GitHub's tag-protection rule blocks deleting or moving either.
+The `v0.1.1`, `v0.1.3` and `v0.1.4` tags are retained as unreleased failed-preflight tags. All three workflows stopped before any build or publication step (v0.1.3's release.yml pinned release-policy to a SHA orphaned by a history rewrite; v0.1.4's VERSION file was not bumped alongside RELEASE_NOTES.md), so none has a release or assets, and GitHub's tag-protection rule blocks deleting or moving any of them.
 
 Changes since `v0.1.2`:
 
