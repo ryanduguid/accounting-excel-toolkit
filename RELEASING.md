@@ -35,6 +35,32 @@ gh release verify v0.1.2 -R ryanduguid/accounting-excel-toolkit
 gh release verify-asset v0.1.2 accounting-excel-toolkit-0.1.2.zip -R ryanduguid/accounting-excel-toolkit
 ```
 
+Those commands preserve the consumer-owned signer identity of historical
+release `v0.1.2`. Releases cut after the shared archive-policy migration use
+the policy's internal publication workflow as the signer. For the next
+release, update `tag` if the intended version changes and verify that exact
+source and signer identity:
+
+```bash
+tag=v0.1.6
+repo=ryanduguid/accounting-excel-toolkit
+release_commit="$(git ls-remote "https://github.com/$repo.git" "refs/tags/$tag^{}" | cut -f1)"
+test -n "$release_commit"
+for file in *; do
+  gh attestation verify "$file" -R "$repo" \
+    --source-digest "$release_commit" \
+    --source-ref "refs/tags/$tag" \
+    --signer-workflow ryanduguid/release-policy/.github/workflows/publish-archives.yml \
+    --signer-digest 8b4de1ed339f1358b5f3e850b63412d8717d01da
+done
+gh attestation verify "accounting-excel-toolkit-${tag#v}.zip" -R "$repo" \
+  --predicate-type https://spdx.dev/Document/v2.3 \
+  --source-digest "$release_commit" \
+  --source-ref "refs/tags/$tag" \
+  --signer-workflow ryanduguid/release-policy/.github/workflows/publish-archives.yml \
+  --signer-digest 8b4de1ed339f1358b5f3e850b63412d8717d01da
+```
+
 If any gate fails, leave the tag and any draft release untouched until the failure is understood. Never move an already published tag.
 
 ## Rollback
