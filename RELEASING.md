@@ -1,5 +1,7 @@
 # Releasing
 
+The repository's [GitHub Releases](https://github.com/ryanduguid/accounting-excel-toolkit/releases) page is the canonical release history. A separate changelog is intentionally not maintained.
+
 Releases are built by GitHub Actions from an annotated tag on the exact `main` commit. Do not create or upload release assets by hand.
 
 Before tagging:
