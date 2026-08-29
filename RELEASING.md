@@ -1,5 +1,7 @@
 # Releasing
 
+The repository's [GitHub Releases](https://github.com/ryanduguid/accounting-excel-toolkit/releases) page is the canonical release history. A separate changelog is intentionally not maintained.
+
 Releases are built by GitHub Actions from an annotated tag on the exact `main` commit. Do not create or upload release assets by hand.
 
 Before tagging:
@@ -14,9 +16,9 @@ Before tagging:
 
     Do not push the tag unless the output is exactly `true`. The Actions `GITHUB_TOKEN` cannot be granted repository Administration read access, so the tag workflow cannot perform this preflight itself.
 4. Confirm `VERSION` is the intended version and the first line of `RELEASE_NOTES.md` is the matching tag.
-5. Create an annotated tag on the current remote `main` commit, for example `git tag -a v0.1.2 -m "v0.1.2"` (use `-s` instead of `-a` when a signing key is configured), then push only that tag.
+5. Create an annotated tag on the current remote `main` commit, for example `git tag -a v0.1.6 -m "v0.1.6"` (use `-s` instead of `-a` when a signing key is configured), then push only that tag.
 
-The existing `v0.1.1` tag is retained as immutable history. [Pilot run 31822769922](https://github.com/ryanduguid/accounting-excel-toolkit/actions/runs/31822769922) stopped on the now-removed workflow attempt to read this Administration setting, before any build or publication step; no `v0.1.1` release or assets were created. Do not move or delete that tag. The next release is `v0.1.2`.
+Published releases are `v0.1.0`, `v0.1.2` and `v0.1.5`. The protected `v0.1.1`, `v0.1.3` and `v0.1.4` tags are unreleased failed-preflight history: each stopped before any build or publication step, so none has a release or assets. [Pilot run 31822769922](https://github.com/ryanduguid/accounting-excel-toolkit/actions/runs/31822769922) is the `v0.1.1` Administration-read failure. Do not move or delete any of those tags. `VERSION` and `RELEASE_NOTES.md` currently describe `v0.1.5`; the next intended tag is `v0.1.6`.
 
 The workflow reruns the regression suite, builds deterministic ZIP and tar.gz source archives, generates an SPDX 2.3 SBOM and `SHA256SUMS`, records GitHub provenance and SBOM attestations, then publishes a draft release only after every asset is uploaded. The archive helper fixes the timezone to UTC and Git text conversion to LF so the same tagged tree produces the same archive bytes on Linux and Windows. Existing releases are refused rather than overwritten.
 
@@ -31,6 +33,36 @@ gh attestation verify accounting-excel-toolkit-0.1.2.zip -R ryanduguid/accountin
 gh release view v0.1.2 -R ryanduguid/accounting-excel-toolkit --json isImmutable
 gh release verify v0.1.2 -R ryanduguid/accounting-excel-toolkit
 gh release verify-asset v0.1.2 accounting-excel-toolkit-0.1.2.zip -R ryanduguid/accounting-excel-toolkit
+```
+
+Those commands preserve the consumer-owned signer identity of historical
+release `v0.1.2`. Releases cut after the shared archive-policy migration use
+the policy's internal publication workflow as the signer. For the next
+release, update `tag` if the intended version changes and verify that exact
+source and signer identity:
+
+```bash
+tag=v0.1.6
+repo=ryanduguid/accounting-excel-toolkit
+release_commit="$(git ls-remote "https://github.com/$repo.git" "refs/tags/$tag^{}" | cut -f1)"
+test -n "$release_commit"
+release_dir="$(mktemp -d)"
+gh release download "$tag" -R "$repo" --dir "$release_dir"
+cd "$release_dir"
+sha256sum --check SHA256SUMS
+for file in *; do
+  gh attestation verify "$file" -R "$repo" \
+    --source-digest "$release_commit" \
+    --source-ref "refs/tags/$tag" \
+    --signer-workflow ryanduguid/release-policy/.github/workflows/publish-archives.yml \
+    --signer-digest 8b4de1ed339f1358b5f3e850b63412d8717d01da
+done
+gh attestation verify "accounting-excel-toolkit-${tag#v}.zip" -R "$repo" \
+  --predicate-type https://spdx.dev/Document/v2.3 \
+  --source-digest "$release_commit" \
+  --source-ref "refs/tags/$tag" \
+  --signer-workflow ryanduguid/release-policy/.github/workflows/publish-archives.yml \
+  --signer-digest 8b4de1ed339f1358b5f3e850b63412d8717d01da
 ```
 
 If any gate fails, leave the tag and any draft release untouched until the failure is understood. Never move an already published tag.
