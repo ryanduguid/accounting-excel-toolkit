@@ -11,7 +11,15 @@ accounting, legal or exposure decision.
 - `Xero.AgedReceivables`: Observed Xero aged receivables summary CSV export contract. Returns the bucket and Total columns as exported, drops the summary total row, and coerces contact keys to text. The bucket-to-total tie-out is the caller's, not this query's.
 - `Xero.AgedPayables`: Observed Xero aged payables summary CSV export contract. Returns the bucket and Total columns as exported, drops the summary total row, and coerces supplier keys to text. The bucket-to-total tie-out is the caller's, not this query's.
 
-## Next evidence gate: observed Xero aged receivables/payables
+## Evidence gate: observed Xero aged receivables/payables
+
+`Xero.AgedReceivables` and `Xero.AgedPayables` shipped in `v0.1.5` and are
+listed under Contracted parsers above, ahead of this gate: neither parser
+header names an observed export mode and date, and no static or native
+acceptance case calls either function yet, so the gate's criteria below
+remain open. The requirement is kept as the record of what has to be
+collected, and it applies to the shipped parsers and to any change in the
+observed export shape.
 
 Before adding a Xero aged receivables or aged payables parser, collect a fresh,
 non-client interactive export outside this repository and record only the
@@ -25,7 +33,7 @@ the observed export mode and date, accept headers by name, preserve source
 values, reject a changed shape clearly, and add fabricated static plus native
 Excel acceptance cases before it is documented as supported.
 
-## Later evidence gate: MYOB-specific parsers
+## Remaining evidence gate: MYOB-specific parsers
 
 MYOB-specific parsers follow only after an independently observed MYOB export
 is available. Treat each MYOB product, report and export mode as a separate

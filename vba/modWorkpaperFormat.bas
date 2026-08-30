@@ -69,12 +69,16 @@ Public Sub AddReviewerLine(ByVal ws As Worksheet)
 
     ' Last used row across ALL columns - End(xlUp) on column A alone lands
     ' inside the data when the final rows only hold amounts in B onwards
-    ' (totals blocks, formula-only footers). LookIn/LookAt are explicit
-    ' because Find otherwise inherits the user's last Find-dialog settings.
+    ' (totals blocks, formula-only footers). Every dialog-sticky argument
+    ' is passed, because Find otherwise inherits the user's last Find-dialog
+    ' settings: with LookIn:=xlValues a formula-only footer row is invisible,
+    ' and a leftover SearchFormat makes even "*" match nothing, so Find
+    ' returns Nothing and the sign-off is written over row 2.
     Dim c As Range
     Dim lastRow As Long
     Set c = ws.Cells.Find(What:="*", LookIn:=xlFormulas, LookAt:=xlPart, _
-        SearchOrder:=xlByRows, SearchDirection:=xlPrevious)
+        SearchOrder:=xlByRows, SearchDirection:=xlPrevious, _
+        SearchFormat:=False)
     If c Is Nothing Then
         lastRow = 0
     Else
