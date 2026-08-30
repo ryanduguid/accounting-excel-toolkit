@@ -8,7 +8,11 @@
 //
 // Key contract rules:
 //   1. Contact identifier is forced to text so leading zeros and punctuation survive.
-//   2. Ageing buckets and Total columns are parsed as numbers (Currency/type number).
+//   2. Ageing buckets and Total columns are parsed as numbers (Currency/type
+//      number) under a pinned en-AU culture, the same rule Xero.TrialBalance
+//      uses. A blank cell is a genuine zero; any other cell that will not
+//      parse raises an error naming the column and the value, instead of
+//      loading as 0.
 //   3. The trailing summary "Total" row is excluded from the returned customer rows.
 //   4. Bucket and Total columns are returned as Xero exported them. This query
 //      does not tie row buckets to the exported Total, so check it yourself:
@@ -71,10 +75,32 @@ let
             ),
             // Identify amount columns (all columns except the contact column)
             amountCols = List.Difference(cols, {contactCol}),
-            // Transform types
+            // Culture pinned to en-AU, the same rule Xero.TrialBalance's
+            // parseAmount follows: an unpinned parse follows the machine
+            // locale, where de-DE reads "15234.50" as 1523450. Blank cells
+            // are genuine zeros; anything else that will not parse - "TBC",
+            // "#REF!", or a bracketed negative such as "(150.00)" the culture
+            // does not read - errors loudly, naming the column and the cell,
+            // instead of becoming a 0 that ties the row's buckets to a 0
+            // Total. No parsing beyond what Xero.TrialBalance already does is
+            // attempted here.
+            parseAmount = (columnName as text) =>
+                (raw) =>
+                    let t = Text.Trim(Text.From(raw ?? "")) in
+                        if t = "" then 0
+                        else
+                            try Number.From(t, "en-AU")
+                            otherwise error Error.Record(
+                                "Xero.AgedReceivables",
+                                "Amount is not a number",
+                                "Column """ & columnName & """ cell """ & t & """ won't parse as a number. Fix the export before loading."
+                            ),
+            // Transform types. A named parameter, not a nested each: an inner
+            // each's _ shadows the outer one, so the column name the error
+            // message reports would be unreachable from inside the transform.
             TransformOps = List.Transform(
                 amountCols,
-                each {_, each try Value.FromText(Text.Trim(Text.From(_ ?? "0")), "en-US") otherwise 0.0, type number}
+                (columnName as text) => {columnName, parseAmount(columnName), type number}
             ) & {{contactCol, each Text.Trim(Text.From(_ ?? "")), type text}},
             Typed = Table.TransformColumns(Filtered, TransformOps),
             // Rename contact column to canonical "Contact" if needed
