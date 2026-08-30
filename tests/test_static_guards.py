@@ -1430,12 +1430,19 @@ class WorkpaperFormatSafetyTests(unittest.TestCase):
     def test_last_row_search_reads_formulas_and_pins_its_own_settings(self):
         """Find inherits the user's last Find-dialog settings when they are
         not passed.  With LookIn:=xlValues a formula-only footer row is
-        invisible, and the reviewer sign-off is written over live data."""
+        invisible, and the reviewer sign-off is written over live data.
+
+        SearchFormat is the same trap from the other end and has to be pinned
+        with the other four: it is dialog-sticky too, so a user who last ran a
+        Find restricted to a cell format leaves that format in force, "*"
+        matches nothing on the sheet, Find returns Nothing, lastRow falls to
+        0, and the sign-off lands on A2 - over the workpaper title."""
         source = self.source()
         self.assertIn("LookIn:=xlFormulas", source)
         self.assertIn("LookAt:=xlPart", source)
         self.assertIn("SearchOrder:=xlByRows", source)
         self.assertIn("SearchDirection:=xlPrevious", source)
+        self.assertIn("SearchFormat:=False", source)
 
     def test_accounting_number_format_is_identical_in_both_modules(self):
         """Each module imports stand-alone, so the accounting number format
@@ -1480,12 +1487,56 @@ class XeroAgedReceivablesSafetyTests(unittest.TestCase):
         return (ROOT / "powerquery" / "Xero.AgedReceivables.pq").read_text(encoding="utf-8")
 
     def test_aged_receivables_pq_source_guards(self):
+        """The header-detection markers, plus the amount parser they feed.
+
+        Every non-contact column used to be forced through
+        `try Value.FromText(...) otherwise 0.0` with blanks coalesced to "0".
+        Value.FromText never raises on text, so a bucket the culture could
+        not read - a bracketed negative like "(150.00)", "TBC", "#REF!" -
+        came back as text and loaded into a column ascribed `type number`,
+        silently mistyped; the failure surfaces, if ever, only when something
+        downstream sums the column.  Pinned as the shape Xero.TrialBalance's
+        parseAmount already proves - blank is a genuine zero, anything else
+        must parse as a number or raises a named Error.Record - and the
+        record has to carry the column and the offending cell, or the
+        accountant is told only that some cell somewhere in the export will
+        not parse."""
         source = self.source()
         self.assertIn("Xero.AgedReceivables", source)
         self.assertIn("Lines.FromBinary", source)
         self.assertIn("Csv.Document", source)
         self.assertIn("Header row not found", source)
         self.assertIn("Table.PromoteHeaders", source)
+        self.assertRegex(
+            source,
+            re.compile(
+                r"parseAmount = \(columnName as text\) =>\s*"
+                r"\(raw\) =>\s*"
+                r'let t = Text\.Trim\(Text\.From\(raw \?\? ""\)\) in\s*'
+                r'if t = "" then 0\s*'
+                r"else\s*"
+                r'try Number\.From\(t, "en-AU"\)\s*'
+                r"otherwise error Error\.Record\(\s*"
+                r'"Xero\.AgedReceivables",\s*'
+                r'"Amount is not a number",',
+                re.MULTILINE,
+            ),
+        )
+        self.assertIn(
+            '"Column """ & columnName & """ cell """ & t'
+            ' & """ won\'t parse as a number. Fix the export before loading."',
+            source,
+        )
+        # Binding the parser is not using it, and the column name only
+        # reaches the message through a named parameter: the nested each this
+        # replaced shadowed it with the cell value.
+        self.assertIn(
+            "(columnName as text) => {columnName, parseAmount(columnName), type number}",
+            source,
+        )
+        # The silent-zero form cannot come back beside the parser.
+        self.assertNotIn("otherwise 0.0", source)
+        self.assertNotIn("Value.FromText", source)
 
     def test_aged_receivables_sample_fixture_is_reconciled(self):
         fixture_path = ROOT / "samples" / "sample-xero-aged-receivables.csv"
@@ -1535,12 +1586,47 @@ class XeroAgedPayablesSafetyTests(unittest.TestCase):
         return (ROOT / "powerquery" / "Xero.AgedPayables.pq").read_text(encoding="utf-8")
 
     def test_aged_payables_pq_source_guards(self):
+        """The payables half of the same pin, kept as its own assertion set
+        because the two files are separate copies: fixing one parser and
+        leaving the other silently mistyping is exactly the drift a shared
+        assertion would hide.  See the receivables docstring above for what
+        the old `try Value.FromText(...) otherwise 0.0` shape let through."""
         source = self.source()
         self.assertIn("Xero.AgedPayables", source)
         self.assertIn("Lines.FromBinary", source)
         self.assertIn("Csv.Document", source)
         self.assertIn("Header row not found", source)
         self.assertIn("Table.PromoteHeaders", source)
+        self.assertRegex(
+            source,
+            re.compile(
+                r"parseAmount = \(columnName as text\) =>\s*"
+                r"\(raw\) =>\s*"
+                r'let t = Text\.Trim\(Text\.From\(raw \?\? ""\)\) in\s*'
+                r'if t = "" then 0\s*'
+                r"else\s*"
+                r'try Number\.From\(t, "en-AU"\)\s*'
+                r"otherwise error Error\.Record\(\s*"
+                r'"Xero\.AgedPayables",\s*'
+                r'"Amount is not a number",',
+                re.MULTILINE,
+            ),
+        )
+        self.assertIn(
+            '"Column """ & columnName & """ cell """ & t'
+            ' & """ won\'t parse as a number. Fix the export before loading."',
+            source,
+        )
+        # Binding the parser is not using it, and the column name only
+        # reaches the message through a named parameter: the nested each this
+        # replaced shadowed it with the cell value.
+        self.assertIn(
+            "(columnName as text) => {columnName, parseAmount(columnName), type number}",
+            source,
+        )
+        # The silent-zero form cannot come back beside the parser.
+        self.assertNotIn("otherwise 0.0", source)
+        self.assertNotIn("Value.FromText", source)
 
     def test_aged_payables_sample_fixture_is_reconciled(self):
         fixture_path = ROOT / "samples" / "sample-xero-aged-payables.csv"

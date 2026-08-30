@@ -29,7 +29,7 @@ python -B -m unittest discover -s tests -v
 ```
 
 On Windows with Windows PowerShell 5.1 or newer and desktop Excel installed,
-run every checked-in Power Query function in Excel itself:
+run the checked-in acceptance checks in Excel itself:
 
 ```powershell
 powershell -NoProfile -File tools/native_excel_acceptance.ps1
@@ -40,7 +40,10 @@ checkout. The runner requires Excel's Power Query engine and the
 `Microsoft.Mashup.OleDb.1` provider. It exercises exactly 72 real-engine cases:
 both fabricated Xero layouts, the fabricated Payday Super producer contract,
 period and YTD selection, malformed exports, lazy evaluation, AU financial-year
-boundaries, ABN validation and header promotion.
+boundaries, ABN validation and header promotion. That is every function except
+the two aged summary parsers: `Xero.AgedReceivables` and `Xero.AgedPayables`
+are loaded into the workbook with every other `.pq` file, but no check calls
+either one, so neither is exercised in the engine yet.
 
 The default `All` mode runs the 46 core checks and 26 Payday Super checks in
 fresh child PowerShell and Excel processes. Within the Payday child, each of
