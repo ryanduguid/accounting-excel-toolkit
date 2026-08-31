@@ -55,15 +55,19 @@ for file in *; do
     --source-digest "$release_commit" \
     --source-ref "refs/tags/$tag" \
     --signer-workflow ryanduguid/release-policy/.github/workflows/publish-archives.yml \
-    --signer-digest 8b4de1ed339f1358b5f3e850b63412d8717d01da
+    --signer-digest fca32335275ee264799644ccd659b025358dd23c
 done
 gh attestation verify "accounting-excel-toolkit-${tag#v}.zip" -R "$repo" \
   --predicate-type https://spdx.dev/Document/v2.3 \
   --source-digest "$release_commit" \
   --source-ref "refs/tags/$tag" \
   --signer-workflow ryanduguid/release-policy/.github/workflows/publish-archives.yml \
-  --signer-digest 8b4de1ed339f1358b5f3e850b63412d8717d01da
+  --signer-digest fca32335275ee264799644ccd659b025358dd23c
 ```
+
+Releases cut before the policy pin last moved verify against the
+`--signer-digest` that `release.yml` carried at the time, not the one
+above.
 
 If any gate fails, leave the tag and any draft release untouched until the failure is understood. Never move an already published tag.
 
