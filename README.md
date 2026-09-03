@@ -1,5 +1,16 @@
 # accounting-excel-toolkit
 
+> [!IMPORTANT]
+> **Repository migration: 3 September 2026.** We moved maintained development to
+> [`adapters/accounting-excel-toolkit`](https://github.com/ryanduguid/accounting-review-pipeline/tree/main/adapters/accounting-excel-toolkit)
+> in Accounting Review Pipeline.
+> Use the shared
+> [`Xero trial-balance contract`](https://github.com/ryanduguid/accounting-review-pipeline/tree/main/contracts/xero-trial-balance-v1).
+>
+> Keep this repository's [`v0.1.5`](https://github.com/ryanduguid/accounting-excel-toolkit/releases/tag/v0.1.5)
+> as the rollback release until the fourteen-day observation window closes on
+> 17 September 2026. Open new issues and pull requests in Accounting Review Pipeline.
+
 ```
 +----------------------------------------------------------------------+
 |                       accounting-excel-toolkit                       |
